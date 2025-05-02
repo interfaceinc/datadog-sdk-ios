@@ -33,7 +33,7 @@ internal struct TracingURLSessionHandler: DatadogURLSessionHandler {
         self.traceContextInjection = traceContextInjection
     }
 
-    func modify(request: URLRequest, headerTypes: Set<DatadogInternal.TracingHeaderType>) -> (URLRequest, TraceContext?) {
+    func modify(request: URLRequest, headerTypes: Set<DatadogInternal.TracingHeaderType>, networkContext: NetworkContext?) -> (URLRequest, TraceContext?) {
         guard let tracer = tracer else {
             return (request, nil)
         }
@@ -50,7 +50,8 @@ internal struct TracingURLSessionHandler: DatadogURLSessionHandler {
             spanID: spanContext.spanID,
             parentSpanID: spanContext.parentSpanID,
             sampleRate: spanContext.sampleRate,
-            isKept: spanContext.isKept
+            isKept: spanContext.isKept,
+            rumSessionId: contextReceiver.context.rumContext?.sessionID
         )
 
         var request = request
@@ -136,6 +137,8 @@ internal struct TracingURLSessionHandler: DatadogURLSessionHandler {
         } else {
             return
         }
+
+        span.setTag(key: SpanTags.kind, value: "client")
 
         let url = interception.request.url?.absoluteString ?? "unknown_url"
 

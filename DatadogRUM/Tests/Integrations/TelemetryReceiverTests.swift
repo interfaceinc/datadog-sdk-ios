@@ -54,6 +54,7 @@ class TelemetryReceiverTests: XCTestCase {
         XCTAssertEqual(event?.source, .flutter)
         XCTAssertEqual(event?.telemetry.message, "Hello world!")
         XCTAssertEqual(event?.telemetry.telemetryInfo as? [String: Int], ["foo": 42])
+        XCTAssertEqual(event?.effectiveSampleRate, 100)
     }
 
     func testSendTelemetryError() {
@@ -83,6 +84,7 @@ class TelemetryReceiverTests: XCTestCase {
         XCTAssertEqual(event?.telemetry.message, "Oops")
         XCTAssertEqual(event?.telemetry.error?.kind, "OutOfMemory")
         XCTAssertEqual(event?.telemetry.error?.stack, "a\nhay\nneedle\nstack")
+        XCTAssertEqual(event?.effectiveSampleRate, 100)
     }
 
     func testSendTelemetryDebug_withRUMContext() {
@@ -102,6 +104,7 @@ class TelemetryReceiverTests: XCTestCase {
         XCTAssertEqual(event?.view?.id, rumContext.viewID)
         XCTAssertEqual(event?.action?.id, rumContext.userActionID)
         XCTAssertEqual(event?.telemetry.telemetryInfo as? [String: Int], ["foo": 42])
+        XCTAssertEqual(event?.effectiveSampleRate, 100)
     }
 
     func testSendTelemetryError_withRUMContext() throws {
@@ -120,6 +123,7 @@ class TelemetryReceiverTests: XCTestCase {
         XCTAssertEqual(event?.session?.id, rumContext.sessionID)
         XCTAssertEqual(event?.view?.id, rumContext.viewID)
         XCTAssertEqual(event?.action?.id, rumContext.userActionID)
+        XCTAssertEqual(event?.effectiveSampleRate, 100)
     }
 
     func testSendTelemetry_discardDuplicates() throws {
@@ -215,7 +219,7 @@ class TelemetryReceiverTests: XCTestCase {
         for index in 0..<10 {
             telemetry.debug(id: "debug-\(index)", message: .mockAny())
             telemetry.error(id: "error-\(index)", message: .mockAny(), kind: .mockAny(), stack: .mockAny())
-            telemetry.metric(name: .mockAny(), attributes: [:])
+            telemetry.metric(name: .mockAny(), attributes: [:], sampleRate: 100)
             telemetry.configuration(batchSize: .mockAny())
         }
 
@@ -229,8 +233,7 @@ class TelemetryReceiverTests: XCTestCase {
         // Given
         let receiver = TelemetryReceiver.mockWith(
             featureScope: featureScope,
-            sampler: .mockKeepAll(),
-            metricsExtraSampler: .mockRejectAll()
+            sampler: .mockKeepAll()
         )
         let telemetry = TelemetryMock(with: receiver)
 
@@ -238,7 +241,7 @@ class TelemetryReceiverTests: XCTestCase {
         for index in 0..<10 {
             telemetry.debug(id: "debug-\(index)", message: .mockAny())
             telemetry.error(id: "error-\(index)", message: .mockAny(), kind: .mockAny(), stack: .mockAny())
-            telemetry.metric(name: .mockAny(), attributes: [:])
+            telemetry.metric(name: .mockAny(), attributes: [:], sampleRate: 0)
             telemetry.configuration(batchSize: .mockAny())
         }
 
@@ -375,6 +378,7 @@ class TelemetryReceiverTests: XCTestCase {
         XCTAssertEqual(event?.telemetry.configuration.useLocalEncryption, useLocalEncryption)
         XCTAssertEqual(event?.telemetry.configuration.useProxy, useProxy)
         XCTAssertEqual(event?.telemetry.configuration.useTracing, useTracing)
+        XCTAssertEqual(event?.effectiveSampleRate, 100)
     }
 
     // MARK: - Metrics Telemetry Events
@@ -397,7 +401,7 @@ class TelemetryReceiverTests: XCTestCase {
         // When
         let randomName: String = .mockRandom()
         let randomAttributes = mockRandomAttributes()
-        TelemetryMock(with: receiver).metric(name: randomName, attributes: randomAttributes)
+        TelemetryMock(with: receiver).metric(name: randomName, attributes: randomAttributes, sampleRate: 100)
 
         // Then
         let event = featureScope.eventsWritten(ofType: TelemetryDebugEvent.self).first
@@ -406,6 +410,7 @@ class TelemetryReceiverTests: XCTestCase {
         XCTAssertEqual(event?.service, "dd-sdk-ios")
         XCTAssertEqual(event?.source, .reactNative)
         XCTAssertEqual(event?.telemetry.message, "[Mobile Metric] \(randomName)")
+        XCTAssertEqual(event?.effectiveSampleRate, 100)
         randomAttributes.forEach { key, value in
             DDAssertReflectionEqual(event?.telemetry.telemetryInfo[key], value)
         }
@@ -428,7 +433,7 @@ class TelemetryReceiverTests: XCTestCase {
         let receiver = TelemetryReceiver.mockWith(featureScope: featureScope)
 
         // When
-        TelemetryMock(with: receiver).metric(name: .mockRandom(), attributes: mockRandomAttributes())
+        TelemetryMock(with: receiver).metric(name: .mockRandom(), attributes: mockRandomAttributes(), sampleRate: 100)
 
         // Then
         let event = featureScope.eventsWritten(ofType: TelemetryDebugEvent.self).first
@@ -436,6 +441,7 @@ class TelemetryReceiverTests: XCTestCase {
         XCTAssertEqual(event?.session?.id, rumContext.sessionID)
         XCTAssertEqual(event?.view?.id, rumContext.viewID)
         XCTAssertEqual(event?.action?.id, rumContext.userActionID)
+        XCTAssertEqual(event?.effectiveSampleRate, 100)
         let device = try XCTUnwrap(event?.telemetry.device)
         XCTAssertEqual(device.model, deviceMock.model)
         XCTAssertEqual(device.brand, deviceMock.brand)
@@ -456,7 +462,7 @@ class TelemetryReceiverTests: XCTestCase {
         // When
         var attributes = mockRandomAttributes()
         attributes[SDKMetricFields.sessionIDOverrideKey] = sessionIDOverride
-        TelemetryMock(with: receiver).metric(name: .mockRandom(), attributes: attributes)
+        TelemetryMock(with: receiver).metric(name: .mockRandom(), attributes: attributes, sampleRate: 100)
 
         // Then
         let event = featureScope.eventsWritten(ofType: TelemetryDebugEvent.self).first
@@ -467,7 +473,7 @@ class TelemetryReceiverTests: XCTestCase {
         XCTAssertNil(event?.telemetry.telemetryInfo[SDKMetricFields.sessionIDOverrideKey], "It should delete `sessionIDOverrideKey` from metric attributes")
     }
 
-    func testMethodCallTelemetryPropagetsAllData() throws {
+    func testMethodCallTelemetryPropagatesAllData() throws {
         // Given
         let deviceMock: DeviceInfo = .mockRandom()
         featureScope.contextMock = .mockWith(device: deviceMock)
@@ -478,12 +484,9 @@ class TelemetryReceiverTests: XCTestCase {
         let operationName = String.mockRandom()
         let callerClass = String.mockRandom()
         let isSuccessful = Bool.random()
-        let trace = telemetry.startMethodCalled(
-            operationName: operationName,
-            callerClass: callerClass,
-            samplingRate: 100
-        )
-        telemetry.stopMethodCalled(trace, isSuccessful: isSuccessful)
+        let trace = telemetry.startMethodCalled(operationName: operationName, callerClass: callerClass, headSampleRate: 100)
+        Thread.sleep(forTimeInterval: 0.001)
+        telemetry.stopMethodCalled(trace, isSuccessful: isSuccessful, tailSampleRate: 100)
 
         // Then
         let event = featureScope.eventsWritten(ofType: TelemetryDebugEvent.self).first
@@ -515,7 +518,7 @@ class TelemetryReceiverTests: XCTestCase {
         let trace = telemetry.startMethodCalled(
             operationName: .mockAny(),
             callerClass: .mockAny(),
-            samplingRate: 0
+            headSampleRate: 0
         )
         telemetry.stopMethodCalled(trace, isSuccessful: true)
 

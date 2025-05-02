@@ -6,9 +6,10 @@
 
 #if os(iOS)
 import XCTest
-import TestUtilities
 import DatadogInternal
 
+@_spi(Internal)
+import TestUtilities
 @_spi(Internal)
 @testable import DatadogSessionReplay
 
@@ -144,7 +145,9 @@ class SegmentJSONTests: XCTestCase {
 
     private func generateEnrichedRecordJSONs(for segment: SRSegment) throws -> [SegmentJSON] {
         let context = Recorder.Context(
-            privacy: .mockRandom(),
+            textAndInputPrivacy: .mockRandom(),
+            imagePrivacy: .mockRandom(),
+            touchPrivacy: .mockRandom(),
             rumContext: RUMContext(
                 applicationID: segment.application.id,
                 sessionID: segment.session.id,

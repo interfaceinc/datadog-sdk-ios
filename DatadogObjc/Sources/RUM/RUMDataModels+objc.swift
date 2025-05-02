@@ -5,7 +5,7 @@
  */
 
 import Foundation
-import DatadogRUM
+import DatadogInternal
 
 // This file was generated from JSON Schema. Do not modify it directly.
 
@@ -22,6 +22,10 @@ public class DDRUMActionEvent: NSObject {
 
     @objc public var dd: DDRUMActionEventDD {
         DDRUMActionEventDD(root: root)
+    }
+
+    @objc public var account: DDRUMActionEventAccount? {
+        root.swiftModel.account != nil ? DDRUMActionEventAccount(root: root) : nil
     }
 
     @objc public var action: DDRUMActionEventAction {
@@ -142,6 +146,11 @@ public class DDRUMActionEventDDAction: NSObject {
         self.root = root
     }
 
+    @objc public var nameSource: DDRUMActionEventDDActionNameSource {
+        set { root.swiftModel.dd.action!.nameSource = newValue.toSwift }
+        get { .init(swift: root.swiftModel.dd.action!.nameSource) }
+    }
+
     @objc public var position: DDRUMActionEventDDActionPosition? {
         root.swiftModel.dd.action!.position != nil ? DDRUMActionEventDDActionPosition(root: root) : nil
     }
@@ -149,6 +158,41 @@ public class DDRUMActionEventDDAction: NSObject {
     @objc public var target: DDRUMActionEventDDActionTarget? {
         root.swiftModel.dd.action!.target != nil ? DDRUMActionEventDDActionTarget(root: root) : nil
     }
+}
+
+@objc
+public enum DDRUMActionEventDDActionNameSource: Int {
+    internal init(swift: RUMActionEvent.DD.Action.NameSource?) {
+        switch swift {
+        case nil: self = .none
+        case .customAttribute?: self = .customAttribute
+        case .maskPlaceholder?: self = .maskPlaceholder
+        case .standardAttribute?: self = .standardAttribute
+        case .textContent?: self = .textContent
+        case .maskDisallowed?: self = .maskDisallowed
+        case .blank?: self = .blank
+        }
+    }
+
+    internal var toSwift: RUMActionEvent.DD.Action.NameSource? {
+        switch self {
+        case .none: return nil
+        case .customAttribute: return .customAttribute
+        case .maskPlaceholder: return .maskPlaceholder
+        case .standardAttribute: return .standardAttribute
+        case .textContent: return .textContent
+        case .maskDisallowed: return .maskDisallowed
+        case .blank: return .blank
+        }
+    }
+
+    case none
+    case customAttribute
+    case maskPlaceholder
+    case standardAttribute
+    case textContent
+    case maskDisallowed
+    case blank
 }
 
 @objc
@@ -282,6 +326,28 @@ public enum DDRUMActionEventDDSessionRUMSessionPrecondition: Int {
     case prewarm
     case fromNonInteractiveSession
     case explicitStop
+}
+
+@objc
+public class DDRUMActionEventAccount: NSObject {
+    internal let root: DDRUMActionEvent
+
+    internal init(root: DDRUMActionEvent) {
+        self.root = root
+    }
+
+    @objc public var id: String {
+        root.swiftModel.account!.id
+    }
+
+    @objc public var name: String? {
+        root.swiftModel.account!.name
+    }
+
+    @objc public var accountInfo: [String: Any] {
+        set { root.swiftModel.account!.accountInfo = newValue.dd.swiftAttributes }
+        get { root.swiftModel.account!.accountInfo.dd.objCAttributes }
+    }
 }
 
 @objc
@@ -664,6 +730,7 @@ public enum DDRUMActionEventContainerSource: Int {
         case .reactNative: self = .reactNative
         case .roku: self = .roku
         case .unity: self = .unity
+        case .kotlinMultiplatform: self = .kotlinMultiplatform
         }
     }
 
@@ -676,6 +743,7 @@ public enum DDRUMActionEventContainerSource: Int {
         case .reactNative: return .reactNative
         case .roku: return .roku
         case .unity: return .unity
+        case .kotlinMultiplatform: return .kotlinMultiplatform
         }
     }
 
@@ -686,6 +754,7 @@ public enum DDRUMActionEventContainerSource: Int {
     case reactNative
     case roku
     case unity
+    case kotlinMultiplatform
 }
 
 @objc
@@ -710,7 +779,8 @@ public class DDRUMActionEventRUMEventAttributes: NSObject {
     }
 
     @objc public var contextInfo: [String: Any] {
-        root.swiftModel.context!.contextInfo.castToObjectiveC()
+        set { root.swiftModel.context!.contextInfo = newValue.dd.swiftAttributes }
+        get { root.swiftModel.context!.contextInfo.dd.objCAttributes }
     }
 }
 
@@ -889,6 +959,7 @@ public enum DDRUMActionEventSource: Int {
         case .reactNative?: self = .reactNative
         case .roku?: self = .roku
         case .unity?: self = .unity
+        case .kotlinMultiplatform?: self = .kotlinMultiplatform
         }
     }
 
@@ -902,6 +973,7 @@ public enum DDRUMActionEventSource: Int {
         case .reactNative: return .reactNative
         case .roku: return .roku
         case .unity: return .unity
+        case .kotlinMultiplatform: return .kotlinMultiplatform
         }
     }
 
@@ -913,6 +985,7 @@ public enum DDRUMActionEventSource: Int {
     case reactNative
     case roku
     case unity
+    case kotlinMultiplatform
 }
 
 @objc
@@ -944,6 +1017,10 @@ public class DDRUMActionEventRUMUser: NSObject {
         self.root = root
     }
 
+    @objc public var anonymousId: String? {
+        root.swiftModel.usr!.anonymousId
+    }
+
     @objc public var email: String? {
         root.swiftModel.usr!.email
     }
@@ -957,7 +1034,8 @@ public class DDRUMActionEventRUMUser: NSObject {
     }
 
     @objc public var usrInfo: [String: Any] {
-        root.swiftModel.usr!.usrInfo.castToObjectiveC()
+        set { root.swiftModel.usr!.usrInfo = newValue.dd.swiftAttributes }
+        get { root.swiftModel.usr!.usrInfo.dd.objCAttributes }
     }
 }
 
@@ -1004,6 +1082,10 @@ public class DDRUMErrorEvent: NSObject {
 
     @objc public var dd: DDRUMErrorEventDD {
         DDRUMErrorEventDD(root: root)
+    }
+
+    @objc public var account: DDRUMErrorEventAccount? {
+        root.swiftModel.account != nil ? DDRUMErrorEventAccount(root: root) : nil
     }
 
     @objc public var action: DDRUMErrorEventAction? {
@@ -1217,6 +1299,28 @@ public enum DDRUMErrorEventDDSessionRUMSessionPrecondition: Int {
     case prewarm
     case fromNonInteractiveSession
     case explicitStop
+}
+
+@objc
+public class DDRUMErrorEventAccount: NSObject {
+    internal let root: DDRUMErrorEvent
+
+    internal init(root: DDRUMErrorEvent) {
+        self.root = root
+    }
+
+    @objc public var id: String {
+        root.swiftModel.account!.id
+    }
+
+    @objc public var name: String? {
+        root.swiftModel.account!.name
+    }
+
+    @objc public var accountInfo: [String: Any] {
+        set { root.swiftModel.account!.accountInfo = newValue.dd.swiftAttributes }
+        get { root.swiftModel.account!.accountInfo.dd.objCAttributes }
+    }
 }
 
 @objc
@@ -1447,6 +1551,7 @@ public enum DDRUMErrorEventContainerSource: Int {
         case .reactNative: self = .reactNative
         case .roku: self = .roku
         case .unity: self = .unity
+        case .kotlinMultiplatform: self = .kotlinMultiplatform
         }
     }
 
@@ -1459,6 +1564,7 @@ public enum DDRUMErrorEventContainerSource: Int {
         case .reactNative: return .reactNative
         case .roku: return .roku
         case .unity: return .unity
+        case .kotlinMultiplatform: return .kotlinMultiplatform
         }
     }
 
@@ -1469,6 +1575,7 @@ public enum DDRUMErrorEventContainerSource: Int {
     case reactNative
     case roku
     case unity
+    case kotlinMultiplatform
 }
 
 @objc
@@ -1493,7 +1600,8 @@ public class DDRUMErrorEventRUMEventAttributes: NSObject {
     }
 
     @objc public var contextInfo: [String: Any] {
-        root.swiftModel.context!.contextInfo.castToObjectiveC()
+        set { root.swiftModel.context!.contextInfo = newValue.dd.swiftAttributes }
+        get { root.swiftModel.context!.contextInfo.dd.objCAttributes }
     }
 }
 
@@ -1722,6 +1830,8 @@ public enum DDRUMErrorEventErrorCategory: Int {
         case .aNR?: self = .aNR
         case .appHang?: self = .appHang
         case .exception?: self = .exception
+        case .watchdogTermination?: self = .watchdogTermination
+        case .memoryWarning?: self = .memoryWarning
         }
     }
 
@@ -1731,6 +1841,8 @@ public enum DDRUMErrorEventErrorCategory: Int {
         case .aNR: return .aNR
         case .appHang: return .appHang
         case .exception: return .exception
+        case .watchdogTermination: return .watchdogTermination
+        case .memoryWarning: return .memoryWarning
         }
     }
 
@@ -1738,6 +1850,8 @@ public enum DDRUMErrorEventErrorCategory: Int {
     case aNR
     case appHang
     case exception
+    case watchdogTermination
+    case memoryWarning
 }
 
 @objc
@@ -2166,7 +2280,8 @@ public class DDRUMErrorEventFeatureFlags: NSObject {
     }
 
     @objc public var featureFlagsInfo: [String: Any] {
-        root.swiftModel.featureFlags!.featureFlagsInfo.castToObjectiveC()
+        set { root.swiftModel.featureFlags!.featureFlagsInfo = newValue.dd.swiftAttributes }
+        get { root.swiftModel.featureFlags!.featureFlagsInfo.dd.objCAttributes }
     }
 }
 
@@ -2264,6 +2379,7 @@ public enum DDRUMErrorEventSource: Int {
         case .reactNative?: self = .reactNative
         case .roku?: self = .roku
         case .unity?: self = .unity
+        case .kotlinMultiplatform?: self = .kotlinMultiplatform
         }
     }
 
@@ -2277,6 +2393,7 @@ public enum DDRUMErrorEventSource: Int {
         case .reactNative: return .reactNative
         case .roku: return .roku
         case .unity: return .unity
+        case .kotlinMultiplatform: return .kotlinMultiplatform
         }
     }
 
@@ -2288,6 +2405,7 @@ public enum DDRUMErrorEventSource: Int {
     case reactNative
     case roku
     case unity
+    case kotlinMultiplatform
 }
 
 @objc
@@ -2319,6 +2437,10 @@ public class DDRUMErrorEventRUMUser: NSObject {
         self.root = root
     }
 
+    @objc public var anonymousId: String? {
+        root.swiftModel.usr!.anonymousId
+    }
+
     @objc public var email: String? {
         root.swiftModel.usr!.email
     }
@@ -2332,7 +2454,8 @@ public class DDRUMErrorEventRUMUser: NSObject {
     }
 
     @objc public var usrInfo: [String: Any] {
-        root.swiftModel.usr!.usrInfo.castToObjectiveC()
+        set { root.swiftModel.usr!.usrInfo = newValue.dd.swiftAttributes }
+        get { root.swiftModel.usr!.usrInfo.dd.objCAttributes }
     }
 }
 
@@ -2379,6 +2502,10 @@ public class DDRUMLongTaskEvent: NSObject {
 
     @objc public var dd: DDRUMLongTaskEventDD {
         DDRUMLongTaskEventDD(root: root)
+    }
+
+    @objc public var account: DDRUMLongTaskEventAccount? {
+        root.swiftModel.account != nil ? DDRUMLongTaskEventAccount(root: root) : nil
     }
 
     @objc public var action: DDRUMLongTaskEventAction? {
@@ -2588,6 +2715,28 @@ public enum DDRUMLongTaskEventDDSessionRUMSessionPrecondition: Int {
     case prewarm
     case fromNonInteractiveSession
     case explicitStop
+}
+
+@objc
+public class DDRUMLongTaskEventAccount: NSObject {
+    internal let root: DDRUMLongTaskEvent
+
+    internal init(root: DDRUMLongTaskEvent) {
+        self.root = root
+    }
+
+    @objc public var id: String {
+        root.swiftModel.account!.id
+    }
+
+    @objc public var name: String? {
+        root.swiftModel.account!.name
+    }
+
+    @objc public var accountInfo: [String: Any] {
+        set { root.swiftModel.account!.accountInfo = newValue.dd.swiftAttributes }
+        get { root.swiftModel.account!.accountInfo.dd.objCAttributes }
+    }
 }
 
 @objc
@@ -2818,6 +2967,7 @@ public enum DDRUMLongTaskEventContainerSource: Int {
         case .reactNative: self = .reactNative
         case .roku: self = .roku
         case .unity: self = .unity
+        case .kotlinMultiplatform: self = .kotlinMultiplatform
         }
     }
 
@@ -2830,6 +2980,7 @@ public enum DDRUMLongTaskEventContainerSource: Int {
         case .reactNative: return .reactNative
         case .roku: return .roku
         case .unity: return .unity
+        case .kotlinMultiplatform: return .kotlinMultiplatform
         }
     }
 
@@ -2840,6 +2991,7 @@ public enum DDRUMLongTaskEventContainerSource: Int {
     case reactNative
     case roku
     case unity
+    case kotlinMultiplatform
 }
 
 @objc
@@ -2864,7 +3016,8 @@ public class DDRUMLongTaskEventRUMEventAttributes: NSObject {
     }
 
     @objc public var contextInfo: [String: Any] {
-        root.swiftModel.context!.contextInfo.castToObjectiveC()
+        set { root.swiftModel.context!.contextInfo = newValue.dd.swiftAttributes }
+        get { root.swiftModel.context!.contextInfo.dd.objCAttributes }
     }
 }
 
@@ -2970,8 +3123,20 @@ public class DDRUMLongTaskEventLongTask: NSObject {
         self.root = root
     }
 
+    @objc public var blockingDuration: NSNumber? {
+        root.swiftModel.longTask.blockingDuration as NSNumber?
+    }
+
     @objc public var duration: NSNumber {
         root.swiftModel.longTask.duration as NSNumber
+    }
+
+    @objc public var entryType: DDRUMLongTaskEventLongTaskEntryType {
+        .init(swift: root.swiftModel.longTask.entryType)
+    }
+
+    @objc public var firstUiEventTimestamp: NSNumber? {
+        root.swiftModel.longTask.firstUiEventTimestamp as NSNumber?
     }
 
     @objc public var id: String? {
@@ -2981,6 +3146,134 @@ public class DDRUMLongTaskEventLongTask: NSObject {
     @objc public var isFrozenFrame: NSNumber? {
         root.swiftModel.longTask.isFrozenFrame as NSNumber?
     }
+
+    @objc public var renderStart: NSNumber? {
+        root.swiftModel.longTask.renderStart as NSNumber?
+    }
+
+    @objc public var scripts: [DDRUMLongTaskEventLongTaskScripts]? {
+        root.swiftModel.longTask.scripts?.map { DDRUMLongTaskEventLongTaskScripts(swiftModel: $0) }
+    }
+
+    @objc public var startTime: NSNumber? {
+        root.swiftModel.longTask.startTime as NSNumber?
+    }
+
+    @objc public var styleAndLayoutStart: NSNumber? {
+        root.swiftModel.longTask.styleAndLayoutStart as NSNumber?
+    }
+}
+
+@objc
+public enum DDRUMLongTaskEventLongTaskEntryType: Int {
+    internal init(swift: RUMLongTaskEvent.LongTask.EntryType?) {
+        switch swift {
+        case nil: self = .none
+        case .longTask?: self = .longTask
+        case .longAnimationFrame?: self = .longAnimationFrame
+        }
+    }
+
+    internal var toSwift: RUMLongTaskEvent.LongTask.EntryType? {
+        switch self {
+        case .none: return nil
+        case .longTask: return .longTask
+        case .longAnimationFrame: return .longAnimationFrame
+        }
+    }
+
+    case none
+    case longTask
+    case longAnimationFrame
+}
+
+@objc
+public class DDRUMLongTaskEventLongTaskScripts: NSObject {
+    internal var swiftModel: RUMLongTaskEvent.LongTask.Scripts
+    internal var root: DDRUMLongTaskEventLongTaskScripts { self }
+
+    internal init(swiftModel: RUMLongTaskEvent.LongTask.Scripts) {
+        self.swiftModel = swiftModel
+    }
+
+    @objc public var duration: NSNumber? {
+        root.swiftModel.duration as NSNumber?
+    }
+
+    @objc public var executionStart: NSNumber? {
+        root.swiftModel.executionStart as NSNumber?
+    }
+
+    @objc public var forcedStyleAndLayoutDuration: NSNumber? {
+        root.swiftModel.forcedStyleAndLayoutDuration as NSNumber?
+    }
+
+    @objc public var invoker: String? {
+        root.swiftModel.invoker
+    }
+
+    @objc public var invokerType: DDRUMLongTaskEventLongTaskScriptsInvokerType {
+        .init(swift: root.swiftModel.invokerType)
+    }
+
+    @objc public var pauseDuration: NSNumber? {
+        root.swiftModel.pauseDuration as NSNumber?
+    }
+
+    @objc public var sourceCharPosition: NSNumber? {
+        root.swiftModel.sourceCharPosition as NSNumber?
+    }
+
+    @objc public var sourceFunctionName: String? {
+        root.swiftModel.sourceFunctionName
+    }
+
+    @objc public var sourceUrl: String? {
+        root.swiftModel.sourceUrl
+    }
+
+    @objc public var startTime: NSNumber? {
+        root.swiftModel.startTime as NSNumber?
+    }
+
+    @objc public var windowAttribution: String? {
+        root.swiftModel.windowAttribution
+    }
+}
+
+@objc
+public enum DDRUMLongTaskEventLongTaskScriptsInvokerType: Int {
+    internal init(swift: RUMLongTaskEvent.LongTask.Scripts.InvokerType?) {
+        switch swift {
+        case nil: self = .none
+        case .userCallback?: self = .userCallback
+        case .eventListener?: self = .eventListener
+        case .resolvePromise?: self = .resolvePromise
+        case .rejectPromise?: self = .rejectPromise
+        case .classicScript?: self = .classicScript
+        case .moduleScript?: self = .moduleScript
+        }
+    }
+
+    internal var toSwift: RUMLongTaskEvent.LongTask.Scripts.InvokerType? {
+        switch self {
+        case .none: return nil
+        case .userCallback: return .userCallback
+        case .eventListener: return .eventListener
+        case .resolvePromise: return .resolvePromise
+        case .rejectPromise: return .rejectPromise
+        case .classicScript: return .classicScript
+        case .moduleScript: return .moduleScript
+        }
+    }
+
+    case none
+    case userCallback
+    case eventListener
+    case resolvePromise
+    case rejectPromise
+    case classicScript
+    case moduleScript
 }
 
 @objc
@@ -3064,6 +3357,7 @@ public enum DDRUMLongTaskEventSource: Int {
         case .reactNative?: self = .reactNative
         case .roku?: self = .roku
         case .unity?: self = .unity
+        case .kotlinMultiplatform?: self = .kotlinMultiplatform
         }
     }
 
@@ -3077,6 +3371,7 @@ public enum DDRUMLongTaskEventSource: Int {
         case .reactNative: return .reactNative
         case .roku: return .roku
         case .unity: return .unity
+        case .kotlinMultiplatform: return .kotlinMultiplatform
         }
     }
 
@@ -3088,6 +3383,7 @@ public enum DDRUMLongTaskEventSource: Int {
     case reactNative
     case roku
     case unity
+    case kotlinMultiplatform
 }
 
 @objc
@@ -3119,6 +3415,10 @@ public class DDRUMLongTaskEventRUMUser: NSObject {
         self.root = root
     }
 
+    @objc public var anonymousId: String? {
+        root.swiftModel.usr!.anonymousId
+    }
+
     @objc public var email: String? {
         root.swiftModel.usr!.email
     }
@@ -3132,7 +3432,8 @@ public class DDRUMLongTaskEventRUMUser: NSObject {
     }
 
     @objc public var usrInfo: [String: Any] {
-        root.swiftModel.usr!.usrInfo.castToObjectiveC()
+        set { root.swiftModel.usr!.usrInfo = newValue.dd.swiftAttributes }
+        get { root.swiftModel.usr!.usrInfo.dd.objCAttributes }
     }
 }
 
@@ -3175,6 +3476,10 @@ public class DDRUMResourceEvent: NSObject {
 
     @objc public var dd: DDRUMResourceEventDD {
         DDRUMResourceEventDD(root: root)
+    }
+
+    @objc public var account: DDRUMResourceEventAccount? {
+        root.swiftModel.account != nil ? DDRUMResourceEventAccount(root: root) : nil
     }
 
     @objc public var action: DDRUMResourceEventAction? {
@@ -3396,6 +3701,28 @@ public enum DDRUMResourceEventDDSessionRUMSessionPrecondition: Int {
     case prewarm
     case fromNonInteractiveSession
     case explicitStop
+}
+
+@objc
+public class DDRUMResourceEventAccount: NSObject {
+    internal let root: DDRUMResourceEvent
+
+    internal init(root: DDRUMResourceEvent) {
+        self.root = root
+    }
+
+    @objc public var id: String {
+        root.swiftModel.account!.id
+    }
+
+    @objc public var name: String? {
+        root.swiftModel.account!.name
+    }
+
+    @objc public var accountInfo: [String: Any] {
+        set { root.swiftModel.account!.accountInfo = newValue.dd.swiftAttributes }
+        get { root.swiftModel.account!.accountInfo.dd.objCAttributes }
+    }
 }
 
 @objc
@@ -3626,6 +3953,7 @@ public enum DDRUMResourceEventContainerSource: Int {
         case .reactNative: self = .reactNative
         case .roku: self = .roku
         case .unity: self = .unity
+        case .kotlinMultiplatform: self = .kotlinMultiplatform
         }
     }
 
@@ -3638,6 +3966,7 @@ public enum DDRUMResourceEventContainerSource: Int {
         case .reactNative: return .reactNative
         case .roku: return .roku
         case .unity: return .unity
+        case .kotlinMultiplatform: return .kotlinMultiplatform
         }
     }
 
@@ -3648,6 +3977,7 @@ public enum DDRUMResourceEventContainerSource: Int {
     case reactNative
     case roku
     case unity
+    case kotlinMultiplatform
 }
 
 @objc
@@ -3672,7 +4002,8 @@ public class DDRUMResourceEventRUMEventAttributes: NSObject {
     }
 
     @objc public var contextInfo: [String: Any] {
-        root.swiftModel.context!.contextInfo.castToObjectiveC()
+        set { root.swiftModel.context!.contextInfo = newValue.dd.swiftAttributes }
+        get { root.swiftModel.context!.contextInfo.dd.objCAttributes }
     }
 }
 
@@ -3811,6 +4142,10 @@ public class DDRUMResourceEventResource: NSObject {
         root.swiftModel.resource.decodedBodySize as NSNumber?
     }
 
+    @objc public var deliveryType: DDRUMResourceEventResourceDeliveryType {
+        .init(swift: root.swiftModel.resource.deliveryType)
+    }
+
     @objc public var dns: DDRUMResourceEventResourceDNS? {
         root.swiftModel.resource.dns != nil ? DDRUMResourceEventResourceDNS(root: root) : nil
     }
@@ -3841,6 +4176,10 @@ public class DDRUMResourceEventResource: NSObject {
 
     @objc public var method: DDRUMResourceEventResourceRUMMethod {
         .init(swift: root.swiftModel.resource.method)
+    }
+
+    @objc public var `protocol`: String? {
+        root.swiftModel.resource.protocol
     }
 
     @objc public var provider: DDRUMResourceEventResourceProvider? {
@@ -3879,6 +4218,10 @@ public class DDRUMResourceEventResource: NSObject {
         set { root.swiftModel.resource.url = newValue }
         get { root.swiftModel.resource.url }
     }
+
+    @objc public var worker: DDRUMResourceEventResourceWorker? {
+        root.swiftModel.resource.worker != nil ? DDRUMResourceEventResourceWorker(root: root) : nil
+    }
 }
 
 @objc
@@ -3896,6 +4239,32 @@ public class DDRUMResourceEventResourceConnect: NSObject {
     @objc public var start: NSNumber {
         root.swiftModel.resource.connect!.start as NSNumber
     }
+}
+
+@objc
+public enum DDRUMResourceEventResourceDeliveryType: Int {
+    internal init(swift: RUMResourceEvent.Resource.DeliveryType?) {
+        switch swift {
+        case nil: self = .none
+        case .cache?: self = .cache
+        case .navigationalPrefetch?: self = .navigationalPrefetch
+        case .other?: self = .other
+        }
+    }
+
+    internal var toSwift: RUMResourceEvent.Resource.DeliveryType? {
+        switch self {
+        case .none: return nil
+        case .cache: return .cache
+        case .navigationalPrefetch: return .navigationalPrefetch
+        case .other: return .other
+        }
+    }
+
+    case none
+    case cache
+    case navigationalPrefetch
+    case other
 }
 
 @objc
@@ -4228,6 +4597,23 @@ public enum DDRUMResourceEventResourceResourceType: Int {
 }
 
 @objc
+public class DDRUMResourceEventResourceWorker: NSObject {
+    internal let root: DDRUMResourceEvent
+
+    internal init(root: DDRUMResourceEvent) {
+        self.root = root
+    }
+
+    @objc public var duration: NSNumber {
+        root.swiftModel.resource.worker!.duration as NSNumber
+    }
+
+    @objc public var start: NSNumber {
+        root.swiftModel.resource.worker!.start as NSNumber
+    }
+}
+
+@objc
 public class DDRUMResourceEventSession: NSObject {
     internal let root: DDRUMResourceEvent
 
@@ -4283,6 +4669,7 @@ public enum DDRUMResourceEventSource: Int {
         case .reactNative?: self = .reactNative
         case .roku?: self = .roku
         case .unity?: self = .unity
+        case .kotlinMultiplatform?: self = .kotlinMultiplatform
         }
     }
 
@@ -4296,6 +4683,7 @@ public enum DDRUMResourceEventSource: Int {
         case .reactNative: return .reactNative
         case .roku: return .roku
         case .unity: return .unity
+        case .kotlinMultiplatform: return .kotlinMultiplatform
         }
     }
 
@@ -4307,6 +4695,7 @@ public enum DDRUMResourceEventSource: Int {
     case reactNative
     case roku
     case unity
+    case kotlinMultiplatform
 }
 
 @objc
@@ -4338,6 +4727,10 @@ public class DDRUMResourceEventRUMUser: NSObject {
         self.root = root
     }
 
+    @objc public var anonymousId: String? {
+        root.swiftModel.usr!.anonymousId
+    }
+
     @objc public var email: String? {
         root.swiftModel.usr!.email
     }
@@ -4351,7 +4744,8 @@ public class DDRUMResourceEventRUMUser: NSObject {
     }
 
     @objc public var usrInfo: [String: Any] {
-        root.swiftModel.usr!.usrInfo.castToObjectiveC()
+        set { root.swiftModel.usr!.usrInfo = newValue.dd.swiftAttributes }
+        get { root.swiftModel.usr!.usrInfo.dd.objCAttributes }
     }
 }
 
@@ -4394,6 +4788,10 @@ public class DDRUMViewEvent: NSObject {
 
     @objc public var dd: DDRUMViewEventDD {
         DDRUMViewEventDD(root: root)
+    }
+
+    @objc public var account: DDRUMViewEventAccount? {
+        root.swiftModel.account != nil ? DDRUMViewEventAccount(root: root) : nil
     }
 
     @objc public var application: DDRUMViewEventApplication {
@@ -4493,6 +4891,10 @@ public class DDRUMViewEventDD: NSObject {
         root.swiftModel.dd.browserSdkVersion
     }
 
+    @objc public var cls: DDRUMViewEventDDCLS? {
+        root.swiftModel.dd.cls != nil ? DDRUMViewEventDDCLS(root: root) : nil
+    }
+
     @objc public var configuration: DDRUMViewEventDDConfiguration? {
         root.swiftModel.dd.configuration != nil ? DDRUMViewEventDDConfiguration(root: root) : nil
     }
@@ -4515,6 +4917,19 @@ public class DDRUMViewEventDD: NSObject {
 
     @objc public var session: DDRUMViewEventDDSession? {
         root.swiftModel.dd.session != nil ? DDRUMViewEventDDSession(root: root) : nil
+    }
+}
+
+@objc
+public class DDRUMViewEventDDCLS: NSObject {
+    internal let root: DDRUMViewEvent
+
+    internal init(root: DDRUMViewEvent) {
+        self.root = root
+    }
+
+    @objc public var devicePixelRatio: NSNumber? {
+        root.swiftModel.dd.cls!.devicePixelRatio as NSNumber?
     }
 }
 
@@ -4683,6 +5098,28 @@ public enum DDRUMViewEventDDSessionRUMSessionPrecondition: Int {
     case prewarm
     case fromNonInteractiveSession
     case explicitStop
+}
+
+@objc
+public class DDRUMViewEventAccount: NSObject {
+    internal let root: DDRUMViewEvent
+
+    internal init(root: DDRUMViewEvent) {
+        self.root = root
+    }
+
+    @objc public var id: String {
+        root.swiftModel.account!.id
+    }
+
+    @objc public var name: String? {
+        root.swiftModel.account!.name
+    }
+
+    @objc public var accountInfo: [String: Any] {
+        set { root.swiftModel.account!.accountInfo = newValue.dd.swiftAttributes }
+        get { root.swiftModel.account!.accountInfo.dd.objCAttributes }
+    }
 }
 
 @objc
@@ -4877,6 +5314,7 @@ public enum DDRUMViewEventContainerSource: Int {
         case .reactNative: self = .reactNative
         case .roku: self = .roku
         case .unity: self = .unity
+        case .kotlinMultiplatform: self = .kotlinMultiplatform
         }
     }
 
@@ -4889,6 +5327,7 @@ public enum DDRUMViewEventContainerSource: Int {
         case .reactNative: return .reactNative
         case .roku: return .roku
         case .unity: return .unity
+        case .kotlinMultiplatform: return .kotlinMultiplatform
         }
     }
 
@@ -4899,6 +5338,7 @@ public enum DDRUMViewEventContainerSource: Int {
     case reactNative
     case roku
     case unity
+    case kotlinMultiplatform
 }
 
 @objc
@@ -4923,7 +5363,8 @@ public class DDRUMViewEventRUMEventAttributes: NSObject {
     }
 
     @objc public var contextInfo: [String: Any] {
-        root.swiftModel.context!.contextInfo.castToObjectiveC()
+        set { root.swiftModel.context!.contextInfo = newValue.dd.swiftAttributes }
+        get { root.swiftModel.context!.contextInfo.dd.objCAttributes }
     }
 }
 
@@ -5059,7 +5500,8 @@ public class DDRUMViewEventFeatureFlags: NSObject {
     }
 
     @objc public var featureFlagsInfo: [String: Any] {
-        root.swiftModel.featureFlags!.featureFlagsInfo.castToObjectiveC()
+        set { root.swiftModel.featureFlags!.featureFlagsInfo = newValue.dd.swiftAttributes }
+        get { root.swiftModel.featureFlags!.featureFlagsInfo.dd.objCAttributes }
     }
 }
 
@@ -5188,6 +5630,7 @@ public enum DDRUMViewEventSource: Int {
         case .reactNative?: self = .reactNative
         case .roku?: self = .roku
         case .unity?: self = .unity
+        case .kotlinMultiplatform?: self = .kotlinMultiplatform
         }
     }
 
@@ -5201,6 +5644,7 @@ public enum DDRUMViewEventSource: Int {
         case .reactNative: return .reactNative
         case .roku: return .roku
         case .unity: return .unity
+        case .kotlinMultiplatform: return .kotlinMultiplatform
         }
     }
 
@@ -5212,6 +5656,7 @@ public enum DDRUMViewEventSource: Int {
     case reactNative
     case roku
     case unity
+    case kotlinMultiplatform
 }
 
 @objc
@@ -5243,6 +5688,10 @@ public class DDRUMViewEventRUMUser: NSObject {
         self.root = root
     }
 
+    @objc public var anonymousId: String? {
+        root.swiftModel.usr!.anonymousId
+    }
+
     @objc public var email: String? {
         root.swiftModel.usr!.email
     }
@@ -5256,7 +5705,8 @@ public class DDRUMViewEventRUMUser: NSObject {
     }
 
     @objc public var usrInfo: [String: Any] {
-        root.swiftModel.usr!.usrInfo.castToObjectiveC()
+        set { root.swiftModel.usr!.usrInfo = newValue.dd.swiftAttributes }
+        get { root.swiftModel.usr!.usrInfo.dd.objCAttributes }
     }
 }
 
@@ -5344,6 +5794,10 @@ public class DDRUMViewEventView: NSObject {
         root.swiftModel.view.flutterRasterTime != nil ? DDRUMViewEventViewFlutterRasterTime(root: root) : nil
     }
 
+    @objc public var freezeRate: NSNumber? {
+        root.swiftModel.view.freezeRate as NSNumber?
+    }
+
     @objc public var frozenFrame: DDRUMViewEventViewFrozenFrame? {
         root.swiftModel.view.frozenFrame != nil ? DDRUMViewEventViewFrozenFrame(root: root) : nil
     }
@@ -5370,6 +5824,10 @@ public class DDRUMViewEventView: NSObject {
 
     @objc public var interactionToNextPaintTime: NSNumber? {
         root.swiftModel.view.interactionToNextPaintTime as NSNumber?
+    }
+
+    @objc public var interactionToNextViewTime: NSNumber? {
+        root.swiftModel.view.interactionToNextViewTime as NSNumber?
     }
 
     @objc public var isActive: NSNumber? {
@@ -5421,6 +5879,14 @@ public class DDRUMViewEventView: NSObject {
         get { root.swiftModel.view.name }
     }
 
+    @objc public var networkSettledTime: NSNumber? {
+        root.swiftModel.view.networkSettledTime as NSNumber?
+    }
+
+    @objc public var performance: DDRUMViewEventViewPerformance? {
+        root.swiftModel.view.performance != nil ? DDRUMViewEventViewPerformance(root: root) : nil
+    }
+
     @objc public var referrer: String? {
         set { root.swiftModel.view.referrer = newValue }
         get { root.swiftModel.view.referrer }
@@ -5436,6 +5902,14 @@ public class DDRUMViewEventView: NSObject {
 
     @objc public var resource: DDRUMViewEventViewResource {
         DDRUMViewEventViewResource(root: root)
+    }
+
+    @objc public var slowFrames: [DDRUMViewEventViewSlowFrames]? {
+        root.swiftModel.view.slowFrames?.map { DDRUMViewEventViewSlowFrames(swiftModel: $0) }
+    }
+
+    @objc public var slowFramesRate: NSNumber? {
+        root.swiftModel.view.slowFramesRate as NSNumber?
     }
 
     @objc public var timeSpent: NSNumber {
@@ -5661,6 +6135,208 @@ public class DDRUMViewEventViewLongTask: NSObject {
 }
 
 @objc
+public class DDRUMViewEventViewPerformance: NSObject {
+    internal let root: DDRUMViewEvent
+
+    internal init(root: DDRUMViewEvent) {
+        self.root = root
+    }
+
+    @objc public var cls: DDRUMViewEventViewPerformanceCLS? {
+        root.swiftModel.view.performance!.cls != nil ? DDRUMViewEventViewPerformanceCLS(root: root) : nil
+    }
+
+    @objc public var fbc: DDRUMViewEventViewPerformanceFBC? {
+        root.swiftModel.view.performance!.fbc != nil ? DDRUMViewEventViewPerformanceFBC(root: root) : nil
+    }
+
+    @objc public var fcp: DDRUMViewEventViewPerformanceFCP? {
+        root.swiftModel.view.performance!.fcp != nil ? DDRUMViewEventViewPerformanceFCP(root: root) : nil
+    }
+
+    @objc public var fid: DDRUMViewEventViewPerformanceFID? {
+        root.swiftModel.view.performance!.fid != nil ? DDRUMViewEventViewPerformanceFID(root: root) : nil
+    }
+
+    @objc public var inp: DDRUMViewEventViewPerformanceINP? {
+        root.swiftModel.view.performance!.inp != nil ? DDRUMViewEventViewPerformanceINP(root: root) : nil
+    }
+
+    @objc public var lcp: DDRUMViewEventViewPerformanceLCP? {
+        root.swiftModel.view.performance!.lcp != nil ? DDRUMViewEventViewPerformanceLCP(root: root) : nil
+    }
+}
+
+@objc
+public class DDRUMViewEventViewPerformanceCLS: NSObject {
+    internal let root: DDRUMViewEvent
+
+    internal init(root: DDRUMViewEvent) {
+        self.root = root
+    }
+
+    @objc public var currentRect: DDRUMViewEventViewPerformanceCLSCurrentRect? {
+        root.swiftModel.view.performance!.cls!.currentRect != nil ? DDRUMViewEventViewPerformanceCLSCurrentRect(root: root) : nil
+    }
+
+    @objc public var previousRect: DDRUMViewEventViewPerformanceCLSPreviousRect? {
+        root.swiftModel.view.performance!.cls!.previousRect != nil ? DDRUMViewEventViewPerformanceCLSPreviousRect(root: root) : nil
+    }
+
+    @objc public var score: NSNumber {
+        root.swiftModel.view.performance!.cls!.score as NSNumber
+    }
+
+    @objc public var targetSelector: String? {
+        root.swiftModel.view.performance!.cls!.targetSelector
+    }
+
+    @objc public var timestamp: NSNumber? {
+        root.swiftModel.view.performance!.cls!.timestamp as NSNumber?
+    }
+}
+
+@objc
+public class DDRUMViewEventViewPerformanceCLSCurrentRect: NSObject {
+    internal let root: DDRUMViewEvent
+
+    internal init(root: DDRUMViewEvent) {
+        self.root = root
+    }
+
+    @objc public var height: NSNumber {
+        root.swiftModel.view.performance!.cls!.currentRect!.height as NSNumber
+    }
+
+    @objc public var width: NSNumber {
+        root.swiftModel.view.performance!.cls!.currentRect!.width as NSNumber
+    }
+
+    @objc public var x: NSNumber {
+        root.swiftModel.view.performance!.cls!.currentRect!.x as NSNumber
+    }
+
+    @objc public var y: NSNumber {
+        root.swiftModel.view.performance!.cls!.currentRect!.y as NSNumber
+    }
+}
+
+@objc
+public class DDRUMViewEventViewPerformanceCLSPreviousRect: NSObject {
+    internal let root: DDRUMViewEvent
+
+    internal init(root: DDRUMViewEvent) {
+        self.root = root
+    }
+
+    @objc public var height: NSNumber {
+        root.swiftModel.view.performance!.cls!.previousRect!.height as NSNumber
+    }
+
+    @objc public var width: NSNumber {
+        root.swiftModel.view.performance!.cls!.previousRect!.width as NSNumber
+    }
+
+    @objc public var x: NSNumber {
+        root.swiftModel.view.performance!.cls!.previousRect!.x as NSNumber
+    }
+
+    @objc public var y: NSNumber {
+        root.swiftModel.view.performance!.cls!.previousRect!.y as NSNumber
+    }
+}
+
+@objc
+public class DDRUMViewEventViewPerformanceFBC: NSObject {
+    internal let root: DDRUMViewEvent
+
+    internal init(root: DDRUMViewEvent) {
+        self.root = root
+    }
+
+    @objc public var timestamp: NSNumber {
+        root.swiftModel.view.performance!.fbc!.timestamp as NSNumber
+    }
+}
+
+@objc
+public class DDRUMViewEventViewPerformanceFCP: NSObject {
+    internal let root: DDRUMViewEvent
+
+    internal init(root: DDRUMViewEvent) {
+        self.root = root
+    }
+
+    @objc public var timestamp: NSNumber {
+        root.swiftModel.view.performance!.fcp!.timestamp as NSNumber
+    }
+}
+
+@objc
+public class DDRUMViewEventViewPerformanceFID: NSObject {
+    internal let root: DDRUMViewEvent
+
+    internal init(root: DDRUMViewEvent) {
+        self.root = root
+    }
+
+    @objc public var duration: NSNumber {
+        root.swiftModel.view.performance!.fid!.duration as NSNumber
+    }
+
+    @objc public var targetSelector: String? {
+        root.swiftModel.view.performance!.fid!.targetSelector
+    }
+
+    @objc public var timestamp: NSNumber {
+        root.swiftModel.view.performance!.fid!.timestamp as NSNumber
+    }
+}
+
+@objc
+public class DDRUMViewEventViewPerformanceINP: NSObject {
+    internal let root: DDRUMViewEvent
+
+    internal init(root: DDRUMViewEvent) {
+        self.root = root
+    }
+
+    @objc public var duration: NSNumber {
+        root.swiftModel.view.performance!.inp!.duration as NSNumber
+    }
+
+    @objc public var targetSelector: String? {
+        root.swiftModel.view.performance!.inp!.targetSelector
+    }
+
+    @objc public var timestamp: NSNumber? {
+        root.swiftModel.view.performance!.inp!.timestamp as NSNumber?
+    }
+}
+
+@objc
+public class DDRUMViewEventViewPerformanceLCP: NSObject {
+    internal let root: DDRUMViewEvent
+
+    internal init(root: DDRUMViewEvent) {
+        self.root = root
+    }
+
+    @objc public var resourceUrl: String? {
+        set { root.swiftModel.view.performance!.lcp!.resourceUrl = newValue }
+        get { root.swiftModel.view.performance!.lcp!.resourceUrl }
+    }
+
+    @objc public var targetSelector: String? {
+        root.swiftModel.view.performance!.lcp!.targetSelector
+    }
+
+    @objc public var timestamp: NSNumber {
+        root.swiftModel.view.performance!.lcp!.timestamp as NSNumber
+    }
+}
+
+@objc
 public class DDRUMViewEventViewResource: NSObject {
     internal let root: DDRUMViewEvent
 
@@ -5670,6 +6346,24 @@ public class DDRUMViewEventViewResource: NSObject {
 
     @objc public var count: NSNumber {
         root.swiftModel.view.resource.count as NSNumber
+    }
+}
+
+@objc
+public class DDRUMViewEventViewSlowFrames: NSObject {
+    internal var swiftModel: RUMViewEvent.View.SlowFrames
+    internal var root: DDRUMViewEventViewSlowFrames { self }
+
+    internal init(swiftModel: RUMViewEvent.View.SlowFrames) {
+        self.swiftModel = swiftModel
+    }
+
+    @objc public var duration: NSNumber {
+        root.swiftModel.duration as NSNumber
+    }
+
+    @objc public var start: NSNumber {
+        root.swiftModel.start as NSNumber
     }
 }
 
@@ -5684,6 +6378,10 @@ public class DDRUMVitalEvent: NSObject {
 
     @objc public var dd: DDRUMVitalEventDD {
         DDRUMVitalEventDD(root: root)
+    }
+
+    @objc public var account: DDRUMVitalEventAccount? {
+        root.swiftModel.account != nil ? DDRUMVitalEventAccount(root: root) : nil
     }
 
     @objc public var application: DDRUMVitalEventApplication {
@@ -5905,6 +6603,28 @@ public class DDRUMVitalEventDDVital: NSObject {
 }
 
 @objc
+public class DDRUMVitalEventAccount: NSObject {
+    internal let root: DDRUMVitalEvent
+
+    internal init(root: DDRUMVitalEvent) {
+        self.root = root
+    }
+
+    @objc public var id: String {
+        root.swiftModel.account!.id
+    }
+
+    @objc public var name: String? {
+        root.swiftModel.account!.name
+    }
+
+    @objc public var accountInfo: [String: Any] {
+        set { root.swiftModel.account!.accountInfo = newValue.dd.swiftAttributes }
+        get { root.swiftModel.account!.accountInfo.dd.objCAttributes }
+    }
+}
+
+@objc
 public class DDRUMVitalEventApplication: NSObject {
     internal let root: DDRUMVitalEvent
 
@@ -6096,6 +6816,7 @@ public enum DDRUMVitalEventContainerSource: Int {
         case .reactNative: self = .reactNative
         case .roku: self = .roku
         case .unity: self = .unity
+        case .kotlinMultiplatform: self = .kotlinMultiplatform
         }
     }
 
@@ -6108,6 +6829,7 @@ public enum DDRUMVitalEventContainerSource: Int {
         case .reactNative: return .reactNative
         case .roku: return .roku
         case .unity: return .unity
+        case .kotlinMultiplatform: return .kotlinMultiplatform
         }
     }
 
@@ -6118,6 +6840,7 @@ public enum DDRUMVitalEventContainerSource: Int {
     case reactNative
     case roku
     case unity
+    case kotlinMultiplatform
 }
 
 @objc
@@ -6142,7 +6865,8 @@ public class DDRUMVitalEventRUMEventAttributes: NSObject {
     }
 
     @objc public var contextInfo: [String: Any] {
-        root.swiftModel.context!.contextInfo.castToObjectiveC()
+        set { root.swiftModel.context!.contextInfo = newValue.dd.swiftAttributes }
+        get { root.swiftModel.context!.contextInfo.dd.objCAttributes }
     }
 }
 
@@ -6321,6 +7045,7 @@ public enum DDRUMVitalEventSource: Int {
         case .reactNative?: self = .reactNative
         case .roku?: self = .roku
         case .unity?: self = .unity
+        case .kotlinMultiplatform?: self = .kotlinMultiplatform
         }
     }
 
@@ -6334,6 +7059,7 @@ public enum DDRUMVitalEventSource: Int {
         case .reactNative: return .reactNative
         case .roku: return .roku
         case .unity: return .unity
+        case .kotlinMultiplatform: return .kotlinMultiplatform
         }
     }
 
@@ -6345,6 +7071,7 @@ public enum DDRUMVitalEventSource: Int {
     case reactNative
     case roku
     case unity
+    case kotlinMultiplatform
 }
 
 @objc
@@ -6376,6 +7103,10 @@ public class DDRUMVitalEventRUMUser: NSObject {
         self.root = root
     }
 
+    @objc public var anonymousId: String? {
+        root.swiftModel.usr!.anonymousId
+    }
+
     @objc public var email: String? {
         root.swiftModel.usr!.email
     }
@@ -6389,7 +7120,8 @@ public class DDRUMVitalEventRUMUser: NSObject {
     }
 
     @objc public var usrInfo: [String: Any] {
-        root.swiftModel.usr!.usrInfo.castToObjectiveC()
+        set { root.swiftModel.usr!.usrInfo = newValue.dd.swiftAttributes }
+        get { root.swiftModel.usr!.usrInfo.dd.objCAttributes }
     }
 }
 
@@ -6431,6 +7163,14 @@ public class DDRUMVitalEventVital: NSObject {
 
     @objc public var custom: [String: NSNumber]? {
         root.swiftModel.vital.custom as [String: NSNumber]?
+    }
+
+    @objc public var vitalDescription: String? {
+        root.swiftModel.vital.vitalDescription
+    }
+
+    @objc public var duration: NSNumber? {
+        root.swiftModel.vital.duration as NSNumber?
     }
 
     @objc public var id: String {
@@ -6486,6 +7226,10 @@ public class DDTelemetryErrorEvent: NSObject {
 
     @objc public var date: NSNumber {
         root.swiftModel.date as NSNumber
+    }
+
+    @objc public var effectiveSampleRate: NSNumber? {
+        root.swiftModel.effectiveSampleRate as NSNumber?
     }
 
     @objc public var experimentalFeatures: [String]? {
@@ -6583,6 +7327,7 @@ public enum DDTelemetryErrorEventSource: Int {
         case .flutter: self = .flutter
         case .reactNative: self = .reactNative
         case .unity: self = .unity
+        case .kotlinMultiplatform: self = .kotlinMultiplatform
         }
     }
 
@@ -6594,6 +7339,7 @@ public enum DDTelemetryErrorEventSource: Int {
         case .flutter: return .flutter
         case .reactNative: return .reactNative
         case .unity: return .unity
+        case .kotlinMultiplatform: return .kotlinMultiplatform
         }
     }
 
@@ -6603,6 +7349,7 @@ public enum DDTelemetryErrorEventSource: Int {
     case flutter
     case reactNative
     case unity
+    case kotlinMultiplatform
 }
 
 @objc
@@ -6638,7 +7385,8 @@ public class DDTelemetryErrorEventTelemetry: NSObject {
     }
 
     @objc public var telemetryInfo: [String: Any] {
-        root.swiftModel.telemetry.telemetryInfo.castToObjectiveC()
+        set { root.swiftModel.telemetry.telemetryInfo = newValue.dd.swiftAttributes }
+        get { root.swiftModel.telemetry.telemetryInfo.dd.objCAttributes }
     }
 }
 
@@ -6739,6 +7487,10 @@ public class DDTelemetryDebugEvent: NSObject {
         root.swiftModel.date as NSNumber
     }
 
+    @objc public var effectiveSampleRate: NSNumber? {
+        root.swiftModel.effectiveSampleRate as NSNumber?
+    }
+
     @objc public var experimentalFeatures: [String]? {
         root.swiftModel.experimentalFeatures
     }
@@ -6834,6 +7586,7 @@ public enum DDTelemetryDebugEventSource: Int {
         case .flutter: self = .flutter
         case .reactNative: self = .reactNative
         case .unity: self = .unity
+        case .kotlinMultiplatform: self = .kotlinMultiplatform
         }
     }
 
@@ -6845,6 +7598,7 @@ public enum DDTelemetryDebugEventSource: Int {
         case .flutter: return .flutter
         case .reactNative: return .reactNative
         case .unity: return .unity
+        case .kotlinMultiplatform: return .kotlinMultiplatform
         }
     }
 
@@ -6854,6 +7608,7 @@ public enum DDTelemetryDebugEventSource: Int {
     case flutter
     case reactNative
     case unity
+    case kotlinMultiplatform
 }
 
 @objc
@@ -6885,7 +7640,8 @@ public class DDTelemetryDebugEventTelemetry: NSObject {
     }
 
     @objc public var telemetryInfo: [String: Any] {
-        root.swiftModel.telemetry.telemetryInfo.castToObjectiveC()
+        set { root.swiftModel.telemetry.telemetryInfo = newValue.dd.swiftAttributes }
+        get { root.swiftModel.telemetry.telemetryInfo.dd.objCAttributes }
     }
 }
 
@@ -6967,6 +7723,10 @@ public class DDTelemetryConfigurationEvent: NSObject {
 
     @objc public var date: NSNumber {
         root.swiftModel.date as NSNumber
+    }
+
+    @objc public var effectiveSampleRate: NSNumber? {
+        root.swiftModel.effectiveSampleRate as NSNumber?
     }
 
     @objc public var experimentalFeatures: [String]? {
@@ -7064,6 +7824,7 @@ public enum DDTelemetryConfigurationEventSource: Int {
         case .flutter: self = .flutter
         case .reactNative: self = .reactNative
         case .unity: self = .unity
+        case .kotlinMultiplatform: self = .kotlinMultiplatform
         }
     }
 
@@ -7075,6 +7836,7 @@ public enum DDTelemetryConfigurationEventSource: Int {
         case .flutter: return .flutter
         case .reactNative: return .reactNative
         case .unity: return .unity
+        case .kotlinMultiplatform: return .kotlinMultiplatform
         }
     }
 
@@ -7084,6 +7846,7 @@ public enum DDTelemetryConfigurationEventSource: Int {
     case flutter
     case reactNative
     case unity
+    case kotlinMultiplatform
 }
 
 @objc
@@ -7111,7 +7874,8 @@ public class DDTelemetryConfigurationEventTelemetry: NSObject {
     }
 
     @objc public var telemetryInfo: [String: Any] {
-        root.swiftModel.telemetry.telemetryInfo.castToObjectiveC()
+        set { root.swiftModel.telemetry.telemetryInfo = newValue.dd.swiftAttributes }
+        get { root.swiftModel.telemetry.telemetryInfo.dd.objCAttributes }
     }
 }
 
@@ -7186,14 +7950,36 @@ public class DDTelemetryConfigurationEventTelemetryConfiguration: NSObject {
         root.swiftModel.telemetry.configuration.forwardReports != nil ? DDTelemetryConfigurationEventTelemetryConfigurationForwardReports(root: root) : nil
     }
 
+    @objc public var imagePrivacyLevel: String? {
+        set { root.swiftModel.telemetry.configuration.imagePrivacyLevel = newValue }
+        get { root.swiftModel.telemetry.configuration.imagePrivacyLevel }
+    }
+
     @objc public var initializationType: String? {
         set { root.swiftModel.telemetry.configuration.initializationType = newValue }
         get { root.swiftModel.telemetry.configuration.initializationType }
     }
 
+    @objc public var invTimeThresholdMs: NSNumber? {
+        root.swiftModel.telemetry.configuration.invTimeThresholdMs as NSNumber?
+    }
+
+    @objc public var isMainProcess: NSNumber? {
+        root.swiftModel.telemetry.configuration.isMainProcess as NSNumber?
+    }
+
     @objc public var mobileVitalsUpdatePeriod: NSNumber? {
         set { root.swiftModel.telemetry.configuration.mobileVitalsUpdatePeriod = newValue?.int64Value }
         get { root.swiftModel.telemetry.configuration.mobileVitalsUpdatePeriod as NSNumber? }
+    }
+
+    @objc public var numberOfDisplays: NSNumber? {
+        root.swiftModel.telemetry.configuration.numberOfDisplays as NSNumber?
+    }
+
+    @objc public var plugins: [DDTelemetryConfigurationEventTelemetryConfigurationPlugins]? {
+        set { root.swiftModel.telemetry.configuration.plugins = newValue?.map { $0.swiftModel } }
+        get { root.swiftModel.telemetry.configuration.plugins?.map { DDTelemetryConfigurationEventTelemetryConfigurationPlugins(swiftModel: $0) } }
     }
 
     @objc public var premiumSampleRate: NSNumber? {
@@ -7223,6 +8009,10 @@ public class DDTelemetryConfigurationEventTelemetryConfiguration: NSObject {
         get { root.swiftModel.telemetry.configuration.sendLogsAfterSessionExpiration as NSNumber? }
     }
 
+    @objc public var sessionPersistence: DDTelemetryConfigurationEventTelemetryConfigurationSessionPersistence {
+        .init(swift: root.swiftModel.telemetry.configuration.sessionPersistence)
+    }
+
     @objc public var sessionReplaySampleRate: NSNumber? {
         set { root.swiftModel.telemetry.configuration.sessionReplaySampleRate = newValue?.int64Value }
         get { root.swiftModel.telemetry.configuration.sessionReplaySampleRate as NSNumber? }
@@ -7234,6 +8024,11 @@ public class DDTelemetryConfigurationEventTelemetryConfiguration: NSObject {
 
     @objc public var silentMultipleInit: NSNumber? {
         root.swiftModel.telemetry.configuration.silentMultipleInit as NSNumber?
+    }
+
+    @objc public var startRecordingImmediately: NSNumber? {
+        set { root.swiftModel.telemetry.configuration.startRecordingImmediately = newValue?.boolValue }
+        get { root.swiftModel.telemetry.configuration.startRecordingImmediately as NSNumber? }
     }
 
     @objc public var startSessionReplayRecordingManually: NSNumber? {
@@ -7257,6 +8052,20 @@ public class DDTelemetryConfigurationEventTelemetryConfiguration: NSObject {
         root.swiftModel.telemetry.configuration.telemetryUsageSampleRate as NSNumber?
     }
 
+    @objc public var textAndInputPrivacyLevel: String? {
+        set { root.swiftModel.telemetry.configuration.textAndInputPrivacyLevel = newValue }
+        get { root.swiftModel.telemetry.configuration.textAndInputPrivacyLevel }
+    }
+
+    @objc public var tnsTimeThresholdMs: NSNumber? {
+        root.swiftModel.telemetry.configuration.tnsTimeThresholdMs as NSNumber?
+    }
+
+    @objc public var touchPrivacyLevel: String? {
+        set { root.swiftModel.telemetry.configuration.touchPrivacyLevel = newValue }
+        get { root.swiftModel.telemetry.configuration.touchPrivacyLevel }
+    }
+
     @objc public var traceContextInjection: DDTelemetryConfigurationEventTelemetryConfigurationTraceContextInjection {
         set { root.swiftModel.telemetry.configuration.traceContextInjection = newValue.toSwift }
         get { .init(swift: root.swiftModel.telemetry.configuration.traceContextInjection) }
@@ -7276,6 +8085,11 @@ public class DDTelemetryConfigurationEventTelemetryConfiguration: NSObject {
         get { root.swiftModel.telemetry.configuration.tracerApiVersion }
     }
 
+    @objc public var trackAnonymousUser: NSNumber? {
+        set { root.swiftModel.telemetry.configuration.trackAnonymousUser = newValue?.boolValue }
+        get { root.swiftModel.telemetry.configuration.trackAnonymousUser as NSNumber? }
+    }
+
     @objc public var trackBackgroundEvents: NSNumber? {
         set { root.swiftModel.telemetry.configuration.trackBackgroundEvents = newValue?.boolValue }
         get { root.swiftModel.telemetry.configuration.trackBackgroundEvents as NSNumber? }
@@ -7289,6 +8103,10 @@ public class DDTelemetryConfigurationEventTelemetryConfiguration: NSObject {
     @objc public var trackErrors: NSNumber? {
         set { root.swiftModel.telemetry.configuration.trackErrors = newValue?.boolValue }
         get { root.swiftModel.telemetry.configuration.trackErrors as NSNumber? }
+    }
+
+    @objc public var trackFeatureFlagsForEvents: [Int]? {
+        root.swiftModel.telemetry.configuration.trackFeatureFlagsForEvents?.map { DDTelemetryConfigurationEventTelemetryConfigurationTrackFeatureFlagsForEvents(swift: $0).rawValue }
     }
 
     @objc public var trackFlutterPerformance: NSNumber? {
@@ -7466,6 +8284,25 @@ public class DDTelemetryConfigurationEventTelemetryConfigurationForwardReports: 
 }
 
 @objc
+public class DDTelemetryConfigurationEventTelemetryConfigurationPlugins: NSObject {
+    internal var swiftModel: TelemetryConfigurationEvent.Telemetry.Configuration.Plugins
+    internal var root: DDTelemetryConfigurationEventTelemetryConfigurationPlugins { self }
+
+    internal init(swiftModel: TelemetryConfigurationEvent.Telemetry.Configuration.Plugins) {
+        self.swiftModel = swiftModel
+    }
+
+    @objc public var name: String {
+        root.swiftModel.name
+    }
+
+    @objc public var pluginsInfo: [String: Any] {
+        set { root.swiftModel.pluginsInfo = newValue.dd.swiftAttributes }
+        get { root.swiftModel.pluginsInfo.dd.objCAttributes }
+    }
+}
+
+@objc
 public enum DDTelemetryConfigurationEventTelemetryConfigurationSelectedTracingPropagators: Int {
     internal init(swift: TelemetryConfigurationEvent.Telemetry.Configuration.SelectedTracingPropagators?) {
         switch swift {
@@ -7495,6 +8332,29 @@ public enum DDTelemetryConfigurationEventTelemetryConfigurationSelectedTracingPr
 }
 
 @objc
+public enum DDTelemetryConfigurationEventTelemetryConfigurationSessionPersistence: Int {
+    internal init(swift: TelemetryConfigurationEvent.Telemetry.Configuration.SessionPersistence?) {
+        switch swift {
+        case nil: self = .none
+        case .localStorage?: self = .localStorage
+        case .cookie?: self = .cookie
+        }
+    }
+
+    internal var toSwift: TelemetryConfigurationEvent.Telemetry.Configuration.SessionPersistence? {
+        switch self {
+        case .none: return nil
+        case .localStorage: return .localStorage
+        case .cookie: return .cookie
+        }
+    }
+
+    case none
+    case localStorage
+    case cookie
+}
+
+@objc
 public enum DDTelemetryConfigurationEventTelemetryConfigurationTraceContextInjection: Int {
     internal init(swift: TelemetryConfigurationEvent.Telemetry.Configuration.TraceContextInjection?) {
         switch swift {
@@ -7515,6 +8375,35 @@ public enum DDTelemetryConfigurationEventTelemetryConfigurationTraceContextInjec
     case none
     case all
     case sampled
+}
+
+@objc
+public enum DDTelemetryConfigurationEventTelemetryConfigurationTrackFeatureFlagsForEvents: Int {
+    internal init(swift: TelemetryConfigurationEvent.Telemetry.Configuration.TrackFeatureFlagsForEvents?) {
+        switch swift {
+        case nil: self = .none
+        case .vital?: self = .vital
+        case .resource?: self = .resource
+        case .action?: self = .action
+        case .longTask?: self = .longTask
+        }
+    }
+
+    internal var toSwift: TelemetryConfigurationEvent.Telemetry.Configuration.TrackFeatureFlagsForEvents? {
+        switch self {
+        case .none: return nil
+        case .vital: return .vital
+        case .resource: return .resource
+        case .action: return .action
+        case .longTask: return .longTask
+        }
+    }
+
+    case none
+    case vital
+    case resource
+    case action
+    case longTask
 }
 
 @objc
@@ -7629,4 +8518,4 @@ public class DDTelemetryConfigurationEventView: NSObject {
 
 // swiftlint:enable force_unwrapping
 
-// Generated from https://github.com/DataDog/rum-events-format/tree/30d4b773abb4e33edc9d6053d3c12cd302e948a5
+// Generated from https://github.com/DataDog/rum-events-format/tree/2d2cd6aecf0ea4f1ffe61b7149dfdef75397fdbf

@@ -343,6 +343,7 @@ internal struct CrashReportReceiver: FeatureMessageReceiver {
             errorBinaryImages: crash.binaryImages.toRUMDataFormat,
             errorWasTruncated: crash.wasTruncated,
             errorMeta: crash.meta.toRUMDataFormat,
+            additionalAttributes: crash.additionalAttributes.dd.decode(),
             timeSinceAppStart: timeSinceAppStart
         )
     }
@@ -361,6 +362,7 @@ internal struct CrashReportReceiver: FeatureMessageReceiver {
         return RUMViewEvent(
             dd: .init(
                 browserSdkVersion: nil,
+                cls: nil,
                 configuration: .init(
                     sessionReplaySampleRate: nil,
                     sessionSampleRate: Double(self.sessionSampler.samplingRate),
@@ -430,6 +432,7 @@ internal struct CrashReportReceiver: FeatureMessageReceiver {
                 firstInputTime: nil,
                 flutterBuildTime: nil,
                 flutterRasterTime: nil,
+                freezeRate: nil,
                 frozenFrame: .init(count: 0),
                 frustration: .init(count: 0),
                 id: viewUUID.toRUMDataFormat,
@@ -437,6 +440,7 @@ internal struct CrashReportReceiver: FeatureMessageReceiver {
                 interactionToNextPaint: nil,
                 interactionToNextPaintTargetSelector: nil,
                 interactionToNextPaintTime: nil,
+                interactionToNextViewTime: nil,
                 isActive: false, // we know it won't receive updates
                 isSlowRendered: false,
                 jsRefreshRate: nil,
@@ -449,10 +453,13 @@ internal struct CrashReportReceiver: FeatureMessageReceiver {
                 memoryAverage: nil,
                 memoryMax: nil,
                 name: viewName,
+                networkSettledTime: nil,
                 referrer: nil,
                 refreshRateAverage: nil,
                 refreshRateMin: nil,
                 resource: .init(count: 0),
+                slowFrames: nil,
+                slowFramesRate: nil,
                 timeSpent: 1, // arbitrary, 1ns duration
                 url: viewURL
             )

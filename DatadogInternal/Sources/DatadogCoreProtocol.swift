@@ -11,8 +11,7 @@ import Foundation
 ///
 /// Any reference to `DatadogCoreProtocol` must be captured as `weak` within a Feature. This is to avoid
 /// retain cycle of core holding the Feature and vice-versa.
-public protocol DatadogCoreProtocol: AnyObject, MessageSending, BaggageSharing {
-    // TODO: RUM-3717 
+public protocol DatadogCoreProtocol: AnyObject, MessageSending, BaggageSharing, Storage {
     // Remove `DatadogCoreProtocol` conformance to `MessageSending` and `BaggageSharing` once
     // all features are migrated to depend on `FeatureScope` interface.
 
@@ -84,7 +83,7 @@ public protocol BaggageSharing {
     ///     // Bar.swift
     ///     core.scope(for: "bar").eventWriteContext { context, writer in
     ///         if let baggage = context.baggages["key"] {
-    ///             try {
+    ///             do {
     ///                 // Try decoding context to expected type:
     ///                 let value: String = try baggage.decode()
     ///                 // If success, handle the `value`.
@@ -222,8 +221,15 @@ extension BaggageSharing {
     }
 }
 
+/// Provides ability to set or clear the anonymous identifier needed for session linking.
+public protocol AnonymousIdentifierManaging {
+    /// Sets the anonymous identifier.
+    /// - Parameter anonymousId: The anonymous id to be set. When `nil` it will clear the current anonymous id.
+    func set(anonymousId: String?)
+}
+
 /// Feature scope provides a context and a writer to build a record event.
-public protocol FeatureScope: MessageSending, BaggageSharing {
+public protocol FeatureScope: MessageSending, BaggageSharing, AnonymousIdentifierManaging, Sendable {
     /// Retrieve the core context and event writer.
     ///
     /// The Feature scope provides the current Datadog context and event writer for building and recording events.
@@ -308,6 +314,8 @@ public class NOPDatadogCore: DatadogCoreProtocol {
     public func set(baggage: @escaping () -> FeatureBaggage?, forKey key: String) { }
     /// no-op
     public func send(message: FeatureMessage, else fallback: @escaping () -> Void) { }
+    /// no-op
+    public func mostRecentModifiedFileAt(before: Date) throws -> Date? { return nil }
 }
 
 public struct NOPFeatureScope: FeatureScope {
@@ -324,4 +332,6 @@ public struct NOPFeatureScope: FeatureScope {
     public func send(message: FeatureMessage, else fallback: @escaping () -> Void) { }
     /// no-op
     public func set(baggage: @escaping () -> FeatureBaggage?, forKey key: String) { }
+    /// no-op
+    public func set(anonymousId: String?) { }
 }

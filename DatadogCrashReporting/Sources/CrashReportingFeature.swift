@@ -57,8 +57,13 @@ internal final class CrashReportingFeature: DatadogFeature {
     func sendCrashReportIfFound() {
         queue.async {
             self.plugin.readPendingCrashReport { [weak self] crashReport in
-                guard let self = self, let availableCrashReport = crashReport else {
+                guard let self = self else {
+                    return false
+                }
+
+                guard let availableCrashReport = crashReport else {
                     DD.logger.debug("No pending Crash found")
+                    self.sender.send(launch: .init(didCrash: false))
                     return false
                 }
 
@@ -67,10 +72,12 @@ internal final class CrashReportingFeature: DatadogFeature {
                 guard let crashContext = availableCrashReport.context.flatMap({ self.decode(crashContextData: $0) }) else {
                     // `CrashContext` is malformed and and cannot be read. Return `true` to let the crash reporter
                     // purge this crash report as we are not able to process it respectively.
+                    self.sender.send(launch: .init(didCrash: true))
                     return true
                 }
 
                 self.sender.send(report: availableCrashReport, with: crashContext)
+                self.sender.send(launch: .init(didCrash: true))
                 return true
             }
         }

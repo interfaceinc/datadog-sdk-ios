@@ -20,7 +20,7 @@ internal class RUMResourceScope: RUMScope {
     /// The name used to identify this Resource.
     private let resourceKey: String
     /// Resource attributes.
-    private var attributes: [AttributeKey: AttributeValue]
+    private var attributes: [AttributeKey: AttributeValue] = [:]
 
     /// The Resource url.
     private var resourceURL: String
@@ -51,30 +51,32 @@ internal class RUMResourceScope: RUMScope {
     /// Span context passed to the RUM backend in order to generate the APM span for underlying resource.
     private let spanContext: RUMSpanContext?
 
+    /// The Time-to-Network-Settled metric for the view that tracks this resource.
+    private let networkSettledMetric: TNSMetricTracking
+
     /// Callback called when a `RUMResourceEvent` is submitted for storage.
-    private let onResourceEventSent: () -> Void
+    private let onResourceEvent: (_ sent: Bool) -> Void
     /// Callback called when a `RUMErrorEvent` is submitted for storage.
-    private let onErrorEventSent: () -> Void
+    private let onErrorEvent: (_ sent: Bool) -> Void
 
     init(
         context: RUMContext,
         dependencies: RUMScopeDependencies,
         resourceKey: String,
-        attributes: [AttributeKey: AttributeValue],
         startTime: Date,
         serverTimeOffset: TimeInterval,
         url: String,
         httpMethod: RUMMethod,
         resourceKindBasedOnRequest: RUMResourceType?,
         spanContext: RUMSpanContext?,
-        onResourceEventSent: @escaping () -> Void,
-        onErrorEventSent: @escaping () -> Void
+        networkSettledMetric: TNSMetricTracking,
+        onResourceEvent: @escaping (Bool) -> Void,
+        onErrorEvent: @escaping (Bool) -> Void
     ) {
         self.context = context
         self.dependencies = dependencies
         self.resourceUUID = dependencies.rumUUIDGenerator.generateUnique()
         self.resourceKey = resourceKey
-        self.attributes = attributes
         self.resourceURL = url
         self.resourceLoadingStartTime = startTime
         self.serverTimeOffset = serverTimeOffset
@@ -82,13 +84,21 @@ internal class RUMResourceScope: RUMScope {
         self.isFirstPartyResource = dependencies.firstPartyHosts?.isFirstParty(string: url) ?? false
         self.resourceKindBasedOnRequest = resourceKindBasedOnRequest
         self.spanContext = spanContext
-        self.onResourceEventSent = onResourceEventSent
-        self.onErrorEventSent = onErrorEventSent
+        self.networkSettledMetric = networkSettledMetric
+        self.onResourceEvent = onResourceEvent
+        self.onErrorEvent = onErrorEvent
+
+        // Track this resource in view's TNS metric:
+        networkSettledMetric.trackResourceStart(at: startTime, resourceID: resourceUUID, resourceURL: url)
     }
 
     // MARK: - RUMScope
 
     func process(command: RUMCommand, context: DatadogContext, writer: Writer) -> Bool {
+        self.attributes = self.attributes
+            .merging(command.globalAttributes, uniquingKeysWith: { $1 })
+            .merging(command.attributes, uniquingKeysWith: { $1 })
+
         switch command {
         case let command as RUMStopResourceCommand where command.resourceKey == resourceKey:
             sendResourceEvent(on: command, context: context, writer: writer)
@@ -97,61 +107,50 @@ internal class RUMResourceScope: RUMScope {
             sendErrorEvent(on: command, context: context, writer: writer)
             return false
         case let command as RUMAddResourceMetricsCommand where command.resourceKey == resourceKey:
-            addMetrics(from: command)
+            resourceMetrics = command.metrics
         default:
             break
         }
         return true
     }
 
-    private func addMetrics(from command: RUMAddResourceMetricsCommand) {
-        attributes.merge(rumCommandAttributes: command.attributes)
-        resourceMetrics = command.metrics
-    }
-
     // MARK: - Sending RUM Events
 
     private func sendResourceEvent(on command: RUMStopResourceCommand, context: DatadogContext, writer: Writer) {
-        attributes.merge(rumCommandAttributes: command.attributes)
-
         let resourceStartTime: Date
         let resourceDuration: TimeInterval
         let size: Int64?
 
         // Check trace attributes
-        var traceId: TraceID? = nil
-        if let tid = attributes.removeValue(forKey: CrossPlatformAttributes.traceID) as? String {
-            traceId = .init(tid, representation: .hexadecimal)
-        } else {
-            traceId = spanContext?.traceID
-        }
+        let traceId: TraceID? = attributes.removeValue(forKey: CrossPlatformAttributes.traceID)?
+            .dd.decode()
+            .map { .init($0, representation: .hexadecimal) }
+            ?? spanContext?.traceID
 
-        var spanId: SpanID? = nil
-        if let sid = attributes.removeValue(forKey: CrossPlatformAttributes.spanID) as? String {
-            spanId = .init(sid, representation: .decimal)
-        } else {
-            spanId = spanContext?.spanID
-        }
+        let spanId: SpanID? = attributes.removeValue(forKey: CrossPlatformAttributes.spanID)?
+            .dd.decode()
+            .map { .init($0, representation: .decimal) }
+            ?? spanContext?.spanID
 
-        let traceSamplingRate = (attributes.removeValue(forKey: CrossPlatformAttributes.rulePSR) as? Double) ?? spanContext?.samplingRate
+        let traceSamplingRate = attributes.removeValue(forKey: CrossPlatformAttributes.rulePSR)?.dd.decode() ?? spanContext?.samplingRate
 
         // Check GraphQL attributes
         var graphql: RUMResourceEvent.Resource.Graphql? = nil
-        let graphqlOperationName = (attributes.removeValue(forKey: CrossPlatformAttributes.graphqlOperationName) as? String)
-        let graphqlPayload = (attributes.removeValue(forKey: CrossPlatformAttributes.graphqlPayload) as? String)
-        let graphqlVariables = (attributes.removeValue(forKey: CrossPlatformAttributes.graphqlVariables) as? String)
-        if let rawGraphqlOperationType = (attributes.removeValue(forKey: CrossPlatformAttributes.graphqlOperationType) as? String) {
-            if let graphqlOperationType = RUMResourceEvent.Resource.Graphql.OperationType(rawValue: rawGraphqlOperationType) {
-                graphql = .init(
-                    operationName: graphqlOperationName,
-                    operationType: graphqlOperationType,
-                    payload: graphqlPayload,
-                    variables: graphqlVariables
-                )
-            }
+        let graphqlOperationName: String? = attributes.removeValue(forKey: CrossPlatformAttributes.graphqlOperationName)?.dd.decode()
+        let graphqlPayload: String? = attributes.removeValue(forKey: CrossPlatformAttributes.graphqlPayload)?.dd.decode()
+        let graphqlVariables: String? = attributes.removeValue(forKey: CrossPlatformAttributes.graphqlVariables)?.dd.decode()
+        if
+            let rawGraphqlOperationType: String = attributes.removeValue(forKey: CrossPlatformAttributes.graphqlOperationType)?.dd.decode(),
+            let graphqlOperationType = RUMResourceEvent.Resource.Graphql.OperationType(rawValue: rawGraphqlOperationType) {
+            graphql = .init(
+                operationName: graphqlOperationName,
+                operationType: graphqlOperationType,
+                payload: graphqlPayload,
+                variables: graphqlVariables
+            )
         }
 
-        /// Metrics values take precedence over other values.
+        // Metrics values take precedence over other values.
         if let metrics = resourceMetrics {
             resourceStartTime = metrics.fetch.start
             resourceDuration = metrics.fetch.end.timeIntervalSince(metrics.fetch.start)
@@ -161,8 +160,8 @@ internal class RUMResourceScope: RUMScope {
             resourceDuration = command.time.timeIntervalSince(resourceLoadingStartTime)
             size = command.size
         }
-        let resourceType: RUMResourceType = resourceKindBasedOnRequest ?? command.kind
 
+        // Write resource event
         let resourceEvent = RUMResourceEvent(
             dd: .init(
                 browserSdkVersion: nil,
@@ -192,7 +191,7 @@ internal class RUMResourceScope: RUMScope {
             date: resourceStartTime.addingTimeInterval(serverTimeOffset).timeIntervalSince1970.toInt64Milliseconds,
             device: .init(context: context, telemetry: dependencies.telemetry),
             display: nil,
-            os: .init(context: context),
+            os: .init(device: context.device),
             resource: .init(
                 connect: resourceMetrics?.connect.map { metric in
                     .init(
@@ -201,6 +200,7 @@ internal class RUMResourceScope: RUMScope {
                     )
                 },
                 decodedBodySize: nil,
+                deliveryType: nil,
                 dns: resourceMetrics?.dns.map { metric in
                     .init(
                         duration: metric.duration.toInt64Nanoseconds,
@@ -224,6 +224,7 @@ internal class RUMResourceScope: RUMScope {
                 graphql: graphql,
                 id: resourceUUID.toRUMDataFormat,
                 method: resourceHTTPMethod,
+                protocol: nil,
                 provider: resourceEventProvider,
                 redirect: resourceMetrics?.redirection.map { metric in
                     .init(
@@ -241,8 +242,9 @@ internal class RUMResourceScope: RUMScope {
                 },
                 statusCode: command.httpStatusCode?.toInt64 ?? 0,
                 transferSize: nil,
-                type: resourceType,
-                url: resourceURL
+                type: resourceKindBasedOnRequest ?? command.kind,
+                url: resourceURL,
+                worker: nil
             ),
             service: context.service,
             session: .init(
@@ -264,19 +266,19 @@ internal class RUMResourceScope: RUMScope {
 
         if let event = dependencies.eventBuilder.build(from: resourceEvent) {
             writer.write(value: event)
-            onResourceEventSent()
+            onResourceEvent(true)
+            networkSettledMetric.trackResourceEnd(at: command.time, resourceID: resourceUUID, resourceDuration: resourceDuration)
+        } else {
+            onResourceEvent(false)
+            networkSettledMetric.trackResourceDropped(resourceID: resourceUUID)
         }
     }
 
     private func sendErrorEvent(on command: RUMStopResourceWithErrorCommand, context: DatadogContext, writer: Writer) {
-        attributes.merge(rumCommandAttributes: command.attributes)
+        let errorFingerprint: String? = attributes.removeValue(forKey: RUM.Attributes.errorFingerprint)?.dd.decode()
+        let timeSinceAppStart = command.time.timeIntervalSince(context.launchTime.launchDate).toInt64Milliseconds
 
-        let errorFingerprint = attributes.removeValue(forKey: RUM.Attributes.errorFingerprint) as? String
-        var timeSinceAppStart: Int64? = nil
-        if let startTime = context.launchTime?.launchDate {
-            timeSinceAppStart = command.time.timeIntervalSince(startTime).toInt64Milliseconds
-        }
-
+        // Write error event
         let errorEvent = RUMErrorEvent(
             dd: .init(
                 browserSdkVersion: nil,
@@ -325,7 +327,7 @@ internal class RUMResourceScope: RUMScope {
                 wasTruncated: nil
             ),
             freeze: nil,
-            os: .init(context: context),
+            os: .init(device: context.device),
             service: context.service,
             session: .init(
                 hasReplay: context.hasReplay,
@@ -347,7 +349,11 @@ internal class RUMResourceScope: RUMScope {
 
         if let event = dependencies.eventBuilder.build(from: errorEvent) {
             writer.write(value: event)
-            onErrorEventSent()
+            onErrorEvent(true)
+            networkSettledMetric.trackResourceEnd(at: command.time, resourceID: resourceUUID, resourceDuration: nil)
+        } else {
+            onErrorEvent(false)
+            networkSettledMetric.trackResourceDropped(resourceID: resourceUUID)
         }
     }
 

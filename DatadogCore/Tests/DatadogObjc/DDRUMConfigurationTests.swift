@@ -6,6 +6,7 @@
 
 import XCTest
 import TestUtilities
+import DatadogInternal
 @testable import DatadogRUM
 @testable import DatadogObjc
 
@@ -107,10 +108,16 @@ class DDRUMConfigurationTests: XCTestCase {
     }
 
     func testAppHangThreshold() {
-        let random: TimeInterval = .mockRandom()
+        let random: TimeInterval = .mockRandom(min: 0.01, max: .greatestFiniteMagnitude)
         objc.appHangThreshold = random
         XCTAssertEqual(objc.appHangThreshold, random)
         XCTAssertEqual(swift.appHangThreshold, random)
+    }
+
+    func testAppHangThresholdDisable() {
+        objc.appHangThreshold = 0
+        XCTAssertEqual(objc.appHangThreshold, 0)
+        XCTAssertEqual(swift.appHangThreshold, nil)
     }
 
     func testVitalsUpdateFrequency() {

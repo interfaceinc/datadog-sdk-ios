@@ -60,7 +60,7 @@ internal class RUMApplicationScope: RUMScope, RUMContextProvider {
             createInitialSession(with: context, on: command)
 
             // If the app was started by a user (foreground & not prewarmed):
-            if context.applicationStateHistory.currentSnapshot.state == .active && context.launchTime?.isActivePrewarm == false {
+            if context.applicationStateHistory.currentSnapshot.state == .active && !context.launchTime.isActivePrewarm {
                 // Start "ApplicationLaunch" view immediatelly:
                 startApplicationLaunchView(on: command, context: context, writer: writer)
             }
@@ -102,7 +102,7 @@ internal class RUMApplicationScope: RUMScope, RUMContextProvider {
 
             // proccss(command:context:writer) returned false, so the scope will be deallocated at the end of
             // this execution context. End the "RUM Session Ended" metric:
-            defer { dependencies.sessionEndedMetric.endMetric(sessionID: scope.sessionUUID) }
+            defer { dependencies.sessionEndedMetric.endMetric(sessionID: scope.sessionUUID, with: context) }
 
             // proccss(command:context:writer) returned false, but if the scope is still active
             // it means the session reached one of the end reasons
@@ -148,7 +148,7 @@ internal class RUMApplicationScope: RUMScope, RUMContextProvider {
 
         var startPrecondition: RUMSessionPrecondition? = nil
 
-        if context.launchTime?.isActivePrewarm == true {
+        if context.launchTime.isActivePrewarm {
             startPrecondition = .prewarm
         } else if context.applicationStateHistory.currentSnapshot.state == .background {
             startPrecondition = .backgroundLaunch
@@ -247,6 +247,7 @@ internal class RUMApplicationScope: RUMScope, RUMContextProvider {
         _ = process(
             command: RUMApplicationStartCommand(
                 time: command.time,
+                globalAttributes: command.globalAttributes,
                 attributes: command.attributes
             ),
             context: context,

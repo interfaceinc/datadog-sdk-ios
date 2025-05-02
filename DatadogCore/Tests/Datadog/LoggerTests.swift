@@ -5,7 +5,6 @@
  */
 
 import XCTest
-import TestUtilities
 import DatadogInternal
 import OpenTelemetryApi
 
@@ -13,6 +12,7 @@ import OpenTelemetryApi
 @testable import DatadogTrace
 @testable import DatadogRUM
 @testable import DatadogCore
+@testable import TestUtilities
 
 // swiftlint:disable multiline_arguments_brackets
 class LoggerTests: XCTestCase {
@@ -23,8 +23,8 @@ class LoggerTests: XCTestCase {
         core = DatadogCoreProxy()
     }
 
-    override func tearDown() {
-        core.flushAndTearDown()
+    override func tearDownWithError() throws {
+        try core.flushAndTearDown()
         core = nil
         super.tearDown()
     }
@@ -631,7 +631,7 @@ class LoggerTests: XCTestCase {
         try core.register(feature: logging)
 
         RUM.enable(
-            with: .mockWith { $0.sessionSampleRate = 100 },
+            with: .mockWith { $0.sessionSampleRate = .maxSampleRate },
             in: core
         )
 
@@ -986,7 +986,7 @@ class LoggerTests: XCTestCase {
         )
         XCTAssertEqual(
             dd.logger.criticalLog?.error?.message,
-            "🔥 Datadog SDK usage error: `Datadog.initialize()` must be called prior to `Logger.builder.build()`."
+            "🔥 Datadog SDK usage error: `Datadog.initialize()` must be called prior to `Logger.create()`."
         )
         XCTAssertTrue(logger is NOPLogger)
     }
@@ -1009,7 +1009,7 @@ class LoggerTests: XCTestCase {
         )
         XCTAssertEqual(
             dd.logger.criticalLog?.error?.message,
-            "🔥 Datadog SDK usage error: `Logger.builder.build()` produces a non-functional logger, as the logging feature is disabled."
+            "🔥 Datadog SDK usage error: `Logger.create()` produces a non-functional logger because the `Logs` feature was not enabled."
         )
         XCTAssertTrue(logger is NOPLogger)
     }

@@ -6,8 +6,8 @@
 
 #if os(iOS)
 import XCTest
+@_spi(Internal)
 import TestUtilities
-
 @_spi(Internal)
 @testable import DatadogSessionReplay
 
@@ -18,7 +18,7 @@ class WireframesBuilderTests: XCTestCase {
 
         slots.forEach { id in
             let frame: CGRect = .mockRandom()
-            let wireframe = builder.visibleWebViewWireframe(id: id, frame: frame)
+            let wireframe = builder.visibleWebViewWireframe(id: id, frame: frame, clip: frame)
             guard case let .webviewWireframe(wireframe) = wireframe else {
                 return XCTFail("The wireframe must be webviewWireframe case")
             }
@@ -59,6 +59,78 @@ class WireframesBuilderTests: XCTestCase {
         }
 
         XCTAssertTrue(builder.hiddenWebViewWireframes().isEmpty)
+    }
+
+    func testBuildingImageWireframe_ItCreatesAResource() throws {
+        let id: WireframeID = .mockRandom()
+        let resource: MockResource = .mockRandom()
+        let frame: CGRect = .mockRandom()
+        let clip = frame.insetBy(dx: 1, dy: 1)
+        let builder = WireframesBuilder()
+
+        let wireframe = builder.createImageWireframe(
+            id: id,
+            resource: resource,
+            frame: frame,
+            clip: clip
+        )
+
+        guard case let .imageWireframe(wireframe) = wireframe else {
+            return XCTFail("The wireframe must be imageWireframe case")
+        }
+
+        XCTAssertEqual(wireframe.id, id)
+        XCTAssertNil(wireframe.border)
+        XCTAssertEqual(wireframe.clip, .init(bottom: 1, left: 1, right: 1, top: 1))
+        XCTAssertEqual(wireframe.height, Int64(withNoOverflow: frame.height))
+        XCTAssertNil(wireframe.shapeStyle)
+        XCTAssertEqual(wireframe.width, Int64(withNoOverflow: frame.width))
+        XCTAssertEqual(wireframe.x, Int64(withNoOverflow: frame.minX))
+        XCTAssertEqual(wireframe.y, Int64(withNoOverflow: frame.minY))
+        XCTAssertEqual(builder.resources.first?.calculateIdentifier(), resource.identifier)
+        XCTAssertEqual(builder.resources.first?.calculateData(), resource.data)
+    }
+
+    func testContentClip_fromIntersection() {
+        let frame: CGRect = .mockRandom(minWidth: 21, minHeight: 21)
+
+        // Inner clip
+        let clip = SRContentClip(
+            frame,
+            intersecting: frame.insetBy(dx: 10, dy: 10)
+        )
+
+        XCTAssertEqual(clip?.top, 10)
+        XCTAssertEqual(clip?.left, 10)
+        XCTAssertEqual(clip?.bottom, 10)
+        XCTAssertEqual(clip?.right, 10)
+    }
+
+    func testContentClip_whenIntersection_isEqualToFrame() {
+        let frame: CGRect = .mockRandom()
+
+        // Intersectin is equal to frame
+        let clip = SRContentClip(
+            frame,
+            intersecting: frame.insetBy(dx: -10, dy: -10)
+        )
+
+        XCTAssertNil(clip)
+    }
+
+    func testContentClip_fromNoRectIntersection() {
+        let frame: CGRect = .mockRandom()
+
+        // Not intersecting clip
+        let clip = SRContentClip(
+            frame,
+            intersecting: frame.offsetBy(dx: frame.width, dy: frame.height)
+        )
+
+        XCTAssertEqual(clip?.top, Int64(withNoOverflow: frame.height))
+        XCTAssertEqual(clip?.left, Int64(withNoOverflow: frame.width))
+        XCTAssertNil(clip?.bottom)
+        XCTAssertNil(clip?.right)
     }
 }
 #endif

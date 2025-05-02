@@ -25,8 +25,6 @@ internal struct ViewTreeSnapshot {
     let viewportSize: CGSize
     /// An array of nodes recorded for this snapshot - sequenced in DFS order.
     let nodes: [Node]
-    /// An array of resource references recorded for this snapshot - sequenced in DFS order.
-    let resources: [Resource]
     /// A set of webview slot IDs recorded for this and past snapshots.
     let webViewSlotIDs: Set<Int>
 }
@@ -76,35 +74,78 @@ internal typealias Resource = SessionReplayResource
 @_spi(Internal)
 public struct SessionReplayViewAttributes: Equatable {
     /// The view's `frame`, in VTS's root view's coordinate space (usually, the screen coordinate space).
-    public let frame: CGRect
+    public internal(set) var frame: CGRect
+
+    /// The view's clipping frame, in VTS's root view's coordinate space.
+    public internal(set) var clip: CGRect
 
     /// Original view's `.backgroundColor`.
-    public let backgroundColor: CGColor?
+    public internal(set) var backgroundColor: CGColor?
 
     /// Original view's `layer.borderColor`.
-    public let layerBorderColor: CGColor?
+    public internal(set) var layerBorderColor: CGColor?
 
     /// Original view's `layer.borderWidth`.
-    public let layerBorderWidth: CGFloat
+    public internal(set) var layerBorderWidth: CGFloat
 
     /// Original view's `layer.cornerRadius`.
-    public let layerCornerRadius: CGFloat
+    public internal(set) var layerCornerRadius: CGFloat
 
     /// Original view's `.alpha` (between `0.0` and `1.0`).
-    public let alpha: CGFloat
+    public internal(set) var alpha: CGFloat
 
     /// Original view's `.isHidden`.
-    let isHidden: Bool
+    var isHidden: Bool
 
     /// Original view's `.intrinsicContentSize`.
-    let intrinsicContentSize: CGSize
+    var intrinsicContentSize: CGSize
+
+    /// Values copied from privacy overrides, if the view has privacy overrides,
+    /// which take precedence over global masking privacy levels.
+    var textAndInputPrivacy: TextAndInputPrivacyLevel?
+    var imagePrivacy: ImagePrivacyLevel?
+    var touchPrivacy: TouchPrivacyLevel?
+    var hide: Bool?
+}
+
+// This alias enables us to have a more unique name exposed through public-internal access level
+internal typealias ViewAttributes = SessionReplayViewAttributes
+
+extension ViewAttributes {
+    /// Creates value-type view description.
+    ///
+    /// - Parameters:
+    ///   - view: The view instance.
+    ///   - frame: The view frame in root view's coordinate space.
+    ///   - clip: The clipping frame in root view's coordinate space.
+    init(view: UIView, frame: CGRect, clip: CGRect, overrides: SessionReplayPrivacyOverrides?) {
+        self.frame = frame
+        self.clip = clip
+        self.backgroundColor = view.backgroundColor?.cgColor.safeCast
+        self.layerBorderColor = view.layer.borderColor?.safeCast
+        self.layerBorderWidth = view.layer.borderWidth
+        self.layerCornerRadius = view.layer.cornerRadius
+        self.alpha = view.alpha
+        self.isHidden = view.isHidden
+        self.intrinsicContentSize = view.intrinsicContentSize
+        self.textAndInputPrivacy = overrides?.textAndInputPrivacy
+        self.imagePrivacy = overrides?.imagePrivacy
+        self.touchPrivacy = overrides?.touchPrivacy
+        self.hide = overrides?.hide
+    }
 
     /// If the view is technically visible (different than `!isHidden` because it also considers `alpha` and `frame != .zero`).
-    /// A view can be technically visible, but it may have no appearance in practise (e.g. if its colors use `0` alpha component).
+    /// A view can be technically visible, but it may have no appearance in practise (e.g. if its colors use `0` alpha component, or outside
+    /// of clipping frame).
     ///
     /// Example 1: A view is invisible if it has `.zero` size or it is fully transparent (`alpha == 0`).
     /// Example 2: A view can be visible if it has fully transparent background color, but its `alpha` is `0.5` or it occupies non-zero area.
-    var isVisible: Bool { !isHidden && alpha > 0 && frame != .zero }
+    var isVisible: Bool {
+        !isHidden &&
+        alpha > 0 &&
+        frame != .zero &&
+        !frame.intersection(clip).isEmpty
+    }
 
     /// If the view has any visible appearance (considering: background color + border style).
     /// In other words: if this view brings anything visual.
@@ -127,22 +168,20 @@ public struct SessionReplayViewAttributes: Equatable {
     var isTranslucent: Bool { !isVisible || alpha < 1 || backgroundColor?.alpha ?? 0 < 1 }
 }
 
-// This alias enables us to have a more unique name exposed through public-internal access level
-internal typealias ViewAttributes = SessionReplayViewAttributes
+@_spi(Internal)
+public extension SessionReplayViewAttributes {
+    /// Resolves the effective privacy level for text and input elements by considering the view's local override.
+    /// Falls back to the global privacy setting in the absence of local overrides.
+    func resolveTextAndInputPrivacyLevel(in context: SessionReplayViewTreeRecordingContext) -> TextAndInputPrivacyLevel {
+        return textAndInputPrivacy ?? context.recorder.textAndInputPrivacy
+    }
 
-extension ViewAttributes {
-    init(frameInRootView: CGRect, view: UIView) {
-        self.frame = frameInRootView
-        self.backgroundColor = view.backgroundColor?.cgColor.safeCast
-        self.layerBorderColor = view.layer.borderColor?.safeCast
-        self.layerBorderWidth = view.layer.borderWidth
-        self.layerCornerRadius = view.layer.cornerRadius
-        self.alpha = view.alpha
-        self.isHidden = view.isHidden
-        self.intrinsicContentSize = view.intrinsicContentSize
+    /// Resolves the effective privacy level for image elements by considering the view's local override.
+    /// Falls back to the global privacy setting in the absence of local overrides.
+    func resolveImagePrivacyLevel(in context: SessionReplayViewTreeRecordingContext) -> ImagePrivacyLevel {
+        return imagePrivacy ?? context.recorder.imagePrivacy
     }
 }
-
 /// A type defining semantics of portion of view-tree hierarchy (one or more `Nodes`).
 ///
 /// It is leveraged during view-tree traversal in `Recorder`:
@@ -175,8 +214,6 @@ public protocol SessionReplayNodeSemantics {
     var subtreeStrategy: SessionReplayNodeSubtreeStrategy { get }
     /// Nodes that share this semantics.
     var nodes: [SessionReplayNode] { get }
-    /// Resources collected while traversing the subtree of this node.
-    var resources: [SessionReplayResource] { get }
 }
 
 // This alias enables us to have a more unique name exposed through public-internal access level
@@ -213,7 +250,6 @@ internal struct UnknownElement: NodeSemantics {
     static let importance: Int = .min
     let subtreeStrategy: NodeSubtreeStrategy = .record
     let nodes: [Node] = []
-    let resources: [Resource] = []
 
     /// Use `UnknownElement.constant` instead.
     private init () {}
@@ -231,7 +267,6 @@ public struct SessionReplayInvisibleElement: SessionReplayNodeSemantics {
     public static let importance: Int = 0
     public let subtreeStrategy: SessionReplayNodeSubtreeStrategy
     public let nodes: [SessionReplayNode] = []
-    public let resources: [SessionReplayResource] = []
 
     /// Use `InvisibleElement.constant` instead.
     private init () {
@@ -255,7 +290,6 @@ internal struct IgnoredElement: NodeSemantics {
     static var importance: Int = .max
     let subtreeStrategy: NodeSubtreeStrategy
     let nodes: [Node] = []
-    let resources: [Resource] = []
 }
 
 /// A semantics of an UI element that is of `UIView` type. This semantics mean that the element has visual appearance in SR, but
@@ -266,7 +300,6 @@ internal struct AmbiguousElement: NodeSemantics {
     static let importance: Int = 0
     let subtreeStrategy: NodeSubtreeStrategy = .record
     let nodes: [Node]
-    let resources: [Resource]
 }
 
 /// A semantics of an UI element that is one of `UIView` subclasses. This semantics mean that we know its full identity along with set of
@@ -277,16 +310,13 @@ public struct SessionReplaySpecificElement: SessionReplayNodeSemantics {
     public static let importance: Int = .max
     public let subtreeStrategy: SessionReplayNodeSubtreeStrategy
     public let nodes: [SessionReplayNode]
-    public let resources: [SessionReplayResource]
 
     public init(
         subtreeStrategy: SessionReplayNodeSubtreeStrategy,
-        nodes: [SessionReplayNode],
-        resources: [SessionReplayResource] = []
+        nodes: [SessionReplayNode]
     ) {
         self.subtreeStrategy = subtreeStrategy
         self.nodes = nodes
-        self.resources = resources
     }
 }
 

@@ -5,13 +5,13 @@
  */
 
 import XCTest
-import TestUtilities
 import DatadogInternal
 
 @testable import DatadogTrace
 @testable import DatadogLogs
 @testable import DatadogCore
 @testable import DatadogRUM
+@testable import TestUtilities
 
 // swiftlint:disable multiline_arguments_brackets
 class TracerTests: XCTestCase {
@@ -24,8 +24,8 @@ class TracerTests: XCTestCase {
         config = Trace.Configuration()
     }
 
-    override func tearDown() {
-        core.flushAndTearDown()
+        override func tearDownWithError() throws {
+        try core.flushAndTearDown()
         core = nil
         config = nil
         super.tearDown()
@@ -41,7 +41,14 @@ class TracerTests: XCTestCase {
             source: "abc",
             sdkVersion: "1.2.3",
             ciAppOrigin: nil,
-            applicationBundleIdentifier: "com.datadoghq.ios-sdk"
+            applicationBundleIdentifier: "com.datadoghq.ios-sdk",
+            device: .mockWith(
+                name: "iPhone",
+                model: "iPhone10,1",
+                osVersion: "15.4.1",
+                osBuildNumber: "13D20",
+                architecture: "arm64"
+            )
         )
         config.dateProvider = RelativeDateProvider(using: .mockDecember15th2019At10AMUTC())
         config.traceIDGenerator = RelativeTracingUUIDGenerator(startingFrom: .init(idHi: 10, idLo: 100))
@@ -58,7 +65,6 @@ class TracerTests: XCTestCase {
         {
           "spans": [
             {
-              "_dd.agent_psr": 1,
               "trace_id": "64",
               "span_id": "64",
               "parent_id": "0",
@@ -71,9 +77,19 @@ class TracerTests: XCTestCase {
               "type": "custom",
               "meta.tracer.version": "1.2.3",
               "meta.version": "1.0.0",
+              "meta.device.architecture": "arm64",
+              "meta.device.brand": "Apple",
+              "meta.device.model": "iPhone10,1",
+              "meta.device.name": "iPhone",
+              "meta.device.type": "mobile",
+              "meta.os.build": "13D20",
+              "meta.os.name": "iOS",
+              "meta.os.version": "15.4.1",
+              "meta.os.version_major": "15",
               "meta._dd.source": "abc",
               "metrics._top_level": 1,
               "metrics._sampling_priority_v1": 1,
+              "metrics._dd.agent_psr": 1,
               "meta._dd.p.tid": "a"
             }
           ],
@@ -885,7 +901,7 @@ class TracerTests: XCTestCase {
     // MARK: - Usage errors
 
     func testGivenSDKNotInitialized_whenObtainingSharedTracer_itPrintsError() {
-        let printFunction = PrintFunctionMock()
+        let printFunction = PrintFunctionSpy()
         consolePrint = printFunction.print
         defer { consolePrint = { message, _ in print(message) } }
 
@@ -905,7 +921,7 @@ class TracerTests: XCTestCase {
     }
 
     func testGivenTraceNotEnabled_whenObtainingSharedTracer_itPrintsError() {
-        let printFunction = PrintFunctionMock()
+        let printFunction = PrintFunctionSpy()
         consolePrint = printFunction.print
         defer { consolePrint = { message, _ in print(message) } }
 

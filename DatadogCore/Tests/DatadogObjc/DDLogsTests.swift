@@ -23,9 +23,9 @@ class DDLogsTests: XCTestCase {
         CoreRegistry.register(default: core)
     }
 
-    override func tearDown() {
+    override func tearDownWithError() throws {
         CoreRegistry.unregisterDefault()
-        core.flushAndTearDown()
+        try core.flushAndTearDown()
         core = nil
         super.tearDown()
     }
@@ -270,6 +270,24 @@ class DDLogsTests: XCTestCase {
         XCTAssertTrue(objcConfig.configuration.networkInfoEnabled)
         XCTAssertEqual(objcConfig.configuration.remoteSampleRate, 50)
         XCTAssertNotNil(objcConfig.configuration.consoleLogFormat)
+    }
+
+    func testEventMapping() throws {
+        let logsConfiguration = DDLogsConfiguration()
+        logsConfiguration.setEventMapper { logEvent in
+            logEvent.message = "custom-log-message"
+            logEvent.attributes.userAttributes["custom-attribute"] = "custom-value"
+            return logEvent
+        }
+        DDLogs.enable(with: logsConfiguration)
+
+        let objcLogger = DDLogger.create()
+
+        objcLogger.debug("message")
+
+        let logMatchers = try core.waitAndReturnLogMatchers()
+        logMatchers[0].assertMessage(equals: "custom-log-message")
+        logMatchers[0].assertAttributes(equal: ["custom-attribute": "custom-value"])
     }
 }
 // swiftlint:enable multiline_arguments_brackets

@@ -7,13 +7,13 @@
 import XCTest
 #if os(iOS)
 import WebKit
+@_spi(Internal)
 import TestUtilities
-
 @_spi(Internal)
 @testable import DatadogSessionReplay
 
 class WKWebViewRecorderTests: XCTestCase {
-    private let recorder = WKWebViewRecorder()
+    private let recorder = WKWebViewRecorder(identifier: UUID())
     /// The web-view under test.
     private let webView = WKWebView()
     /// `ViewAttributes` simulating common attributes of web-view's `UIView`.

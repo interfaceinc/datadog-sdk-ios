@@ -6,6 +6,7 @@
 
 import Foundation
 import DatadogInternal
+import UIKit
 
 /// Bundles RUM instrumentation components.
 internal final class RUMInstrumentation: RUMCommandPublisher {
@@ -26,9 +27,9 @@ internal final class RUMInstrumentation: RUMCommandPublisher {
     /// Swizzles `UIApplication` for intercepting `UIEvents` passed to the app.
     /// It is `nil` (no swizzling) if RUM Action instrumentaiton is not enabled.
     let uiApplicationSwizzler: UIApplicationSwizzler?
-    /// Receives interceptions from `UIApplicationSwizzler`.
-    /// It is `nil` if RUM Action instrumentaiton is not enabled.
-    let actionsHandler: UIEventHandler?
+    /// Receives interceptions from `UIApplicationSwizzler` and from SwiftUI instrumentation.
+    /// It is non-optional as we can't know if SwiftUI instrumentation will be used or not.
+    let actionsHandler: RUMActionsHandling
 
     /// Instruments RUM Long Tasks. It is `nil` if long tasks tracking is not enabled.
     let longTasks: LongTaskObserver?
@@ -36,57 +37,72 @@ internal final class RUMInstrumentation: RUMCommandPublisher {
     /// Instruments App Hangs. It is `nil` if hangs monitoring is not enabled.
     let appHangs: AppHangsMonitor?
 
+    /// Instruments Watchdog Terminations.
+    let watchdogTermination: WatchdogTerminationMonitor?
+
+    let memoryWarningMonitor: MemoryWarningMonitor?
+
     // MARK: - Initialization
 
     init(
         featureScope: FeatureScope,
         uiKitRUMViewsPredicate: UIKitRUMViewsPredicate?,
         uiKitRUMActionsPredicate: UIKitRUMActionsPredicate?,
+        swiftUIRUMViewsPredicate: SwiftUIRUMViewsPredicate?,
         longTaskThreshold: TimeInterval?,
         appHangThreshold: TimeInterval?,
         mainQueue: DispatchQueue,
         dateProvider: DateProvider,
         backtraceReporter: BacktraceReporting,
         fatalErrorContext: FatalErrorContextNotifying,
-        processID: UUID
+        processID: UUID,
+        notificationCenter: NotificationCenter,
+        watchdogTermination: WatchdogTerminationMonitor?,
+        memoryWarningMonitor: MemoryWarningMonitor
     ) {
-        // Always create views handler (we can't know if it will be used by SwiftUI instrumentation)
-        // and only swizzle `UIViewController` if UIKit instrumentation is configured:
-        let viewsHandler = RUMViewsHandler(dateProvider: dateProvider, predicate: uiKitRUMViewsPredicate)
-        var viewControllerSwizzler: UIViewControllerSwizzler? = nil
+        let viewsHandler = RUMViewsHandler(
+            dateProvider: dateProvider,
+            uiKitPredicate: uiKitRUMViewsPredicate,
+            swiftUIPredicate: swiftUIRUMViewsPredicate,
+            swiftUIViewNameExtractor: SwiftUIReflectionBasedViewNameExtractor(),
+            notificationCenter: notificationCenter
+        )
+        let viewControllerSwizzler: UIViewControllerSwizzler? = {
+            do {
+                if uiKitRUMViewsPredicate != nil || swiftUIRUMViewsPredicate != nil {
+                    return try UIViewControllerSwizzler(handler: viewsHandler)
+                }
+            } catch {
+                consolePrint(
+                    "🔥 Datadog SDK error: UIKit RUM Views tracking can't be enabled due to error: \(error)",
+                    .error
+                )
+            }
+            return nil
+        }()
 
-        // Create actions handler and `UIApplicationSwizzler` only if UIKit instrumentation is configured:
-        var actionsHandler: UIKitRUMUserActionsHandler? = nil
-        var uiApplicationSwizzler: UIApplicationSwizzler? = nil
+        // MARK: TODO: RUM-8420 - Remove after we add SwiftUI action instrumentation option
+        // Always create actions handler (we can't know if it will be used by SwiftUI instrumentation)
+        // and only swizzle `UIApplicationSwizzler` if UIKit instrumentation is configured:
+        let actionsHandler = RUMActionsHandler(dateProvider: dateProvider, predicate: uiKitRUMActionsPredicate)
+        let uiApplicationSwizzler: UIApplicationSwizzler? = {
+            do {
+                // MARK: TODO: RUM-8420 - Check both predicates after we add SwiftUI action instrumentation option
+                if uiKitRUMActionsPredicate != nil {
+                    return try UIApplicationSwizzler(handler: actionsHandler)
+                }
+            } catch {
+                consolePrint(
+                    "🔥 Datadog SDK error: RUM Actions tracking can't be enabled due to error: \(error)",
+                    .error
+                )
+            }
+            return nil
+        }()
 
         // Create long tasks and app hang observers only if configured:
         var longTasks: LongTaskObserver? = nil
         var appHangs: AppHangsMonitor? = nil
-
-        do {
-            if uiKitRUMViewsPredicate != nil {
-                // UIKit views instrumentation is enabled, so install the swizzler:
-                viewControllerSwizzler = try UIViewControllerSwizzler(handler: viewsHandler)
-            }
-        } catch {
-            consolePrint(
-                "🔥 Datadog SDK error: UIKit RUM Views tracking can't be enabled due to error: \(error)",
-                .error
-            )
-        }
-
-        do {
-            if let predicate = uiKitRUMActionsPredicate {
-                let handler = UIKitRUMUserActionsHandler(dateProvider: dateProvider, predicate: predicate)
-                actionsHandler = handler
-                uiApplicationSwizzler = try UIApplicationSwizzler(handler: handler)
-            }
-        } catch {
-            consolePrint(
-                "🔥 Datadog SDK error: RUM Actions tracking can't be enabled due to error: \(error)",
-                .error
-            )
-        }
 
         if let longTaskThreshold = longTaskThreshold {
             if longTaskThreshold > Constants.minLongTaskThreshold {
@@ -119,12 +135,15 @@ internal final class RUMInstrumentation: RUMCommandPublisher {
         self.uiApplicationSwizzler = uiApplicationSwizzler
         self.longTasks = longTasks
         self.appHangs = appHangs
+        self.watchdogTermination = watchdogTermination
+        self.memoryWarningMonitor = memoryWarningMonitor
 
         // Enable configured instrumentations:
         self.viewControllerSwizzler?.swizzle()
         self.uiApplicationSwizzler?.swizzle()
         self.longTasks?.start()
         self.appHangs?.start()
+        self.memoryWarningMonitor?.start()
     }
 
     deinit {
@@ -133,12 +152,15 @@ internal final class RUMInstrumentation: RUMCommandPublisher {
         uiApplicationSwizzler?.unswizzle()
         longTasks?.stop()
         appHangs?.stop()
+        watchdogTermination?.stop()
+        memoryWarningMonitor?.stop()
     }
 
     func publish(to subscriber: RUMCommandSubscriber) {
         viewsHandler.publish(to: subscriber)
-        actionsHandler?.publish(to: subscriber)
+        actionsHandler.publish(to: subscriber)
         longTasks?.publish(to: subscriber)
         appHangs?.nonFatalHangsHandler.publish(to: subscriber)
+        memoryWarningMonitor?.reporter.publish(to: subscriber)
     }
 }

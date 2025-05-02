@@ -6,11 +6,10 @@
 
 import UIKit
 
-public class TabbarViewControllers: UIViewController {
-
+public final class TabbarViewControllers: UIViewController {
     @IBOutlet var tabbars: [UITabBar]!
-    
-    public override func viewDidLoad() {
+
+    override public func viewDidLoad() {
         for tabbar in tabbars {
             // Select the first tabbar's item
             // so we can see both a selected and unselected item
@@ -19,14 +18,14 @@ public class TabbarViewControllers: UIViewController {
     }
 }
 
-public class EmbeddedTabbarController: UITabBarController {
-    public override func viewDidLoad() {
+public final class EmbeddedTabbarController: UITabBarController {
+    override public func viewDidLoad() {
         tabBar.unselectedItemTintColor = nil
     }
 }
 
-public class EmbeddedTabbarUnselectedTintColorController: UITabBarController {
-    public override func viewDidLoad() {
+public final class EmbeddedTabbarUnselectedTintColorController: UITabBarController {
+    override public func viewDidLoad() {
         tabBar.unselectedItemTintColor = UIColor.green
     }
 }

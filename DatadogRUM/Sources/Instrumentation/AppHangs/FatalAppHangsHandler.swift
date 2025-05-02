@@ -42,7 +42,7 @@ internal final class FatalAppHangsHandler {
                 serverTimeOffset: context.serverTimeOffset,
                 lastRUMView: lastRUMView,
                 trackingConsent: context.trackingConsent,
-                appLaunchDate: context.launchTime?.launchDate
+                appLaunchDate: context.launchTime.launchDate
             )
             dataStore.setValue(fatalHang, forKey: .fatalAppHangKey)
         }
@@ -61,6 +61,7 @@ internal final class FatalAppHangsHandler {
     }
 
     func reportFatalAppHangIfFound() {
+        // Report pending app hang
         featureScope.rumDataStore.value(forKey: .fatalAppHangKey) { [weak self] (fatalHang: FatalAppHang?) in
             guard let fatalHang = fatalHang else {
                 DD.logger.debug("No pending App Hang found")
@@ -71,6 +72,9 @@ internal final class FatalAppHangsHandler {
             }
             self?.send(fatalHang: fatalHang)
         }
+
+        // Remove pending app hang
+        featureScope.rumDataStore.removeValue(forKey: .fatalAppHangKey)
     }
 
     private func send(fatalHang: FatalAppHang) {
@@ -106,6 +110,7 @@ internal final class FatalAppHangsHandler {
                 errorBinaryImages: fatalHang.hang.backtraceResult.binaryImages?.toRUMDataFormat,
                 errorWasTruncated: fatalHang.hang.backtraceResult.wasTruncated,
                 errorMeta: nil,
+                additionalAttributes: nil,
                 timeSinceAppStart: timeSinceAppStart
             )
             let error = builder.createRUMError(with: fatalHang.lastRUMView)

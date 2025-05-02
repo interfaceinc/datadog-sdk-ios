@@ -13,14 +13,14 @@ import TestUtilities
 @testable import DatadogCore
 
 class DatadogTests: XCTestCase {
-    private var printFunction: PrintFunctionMock! // swiftlint:disable:this implicitly_unwrapped_optional
+    private var printFunction: PrintFunctionSpy! // swiftlint:disable:this implicitly_unwrapped_optional
     private var defaultConfig = Datadog.Configuration(clientToken: "abc-123", env: "tests")
 
     override func setUp() {
         super.setUp()
 
         XCTAssertFalse(Datadog.isInitialized())
-        printFunction = PrintFunctionMock()
+        printFunction = PrintFunctionSpy()
         consolePrint = printFunction.print
     }
 
@@ -336,7 +336,16 @@ class DatadogTests: XCTestCase {
             try core.directory.getFeatureDirectories(forFeatureNamed: "tracing"),
         ]
 
-        let allDirectories: [Directory] = featureDirectories.flatMap { [$0.authorized, $0.unauthorized] }
+        let scope = core.scope(for: TraceFeature.self)
+        scope.dataStore.setValue("foo".data(using: .utf8)!, forKey: "bar")
+
+        // Wait for async clear completion in all features:
+        core.readWriteQueue.sync {}
+        let tracingDataStoreDir = try core.directory.coreDirectory.subdirectory(path: core.directory.getDataStorePath(forFeatureNamed: "tracing"))
+        XCTAssertTrue(tracingDataStoreDir.hasFile(named: "bar"))
+
+        var allDirectories: [Directory] = featureDirectories.flatMap { [$0.authorized, $0.unauthorized] }
+        allDirectories.append(.init(url: tracingDataStoreDir.url))
         try allDirectories.forEach { directory in _ = try directory.createFile(named: .mockRandom()) }
 
         // When
@@ -346,8 +355,11 @@ class DatadogTests: XCTestCase {
         core.readWriteQueue.sync {}
 
         // Then
-        let newNumberOfFiles = try allDirectories.reduce(0, { acc, nextDirectory in return try acc + nextDirectory.files().count })
-        XCTAssertEqual(newNumberOfFiles, 0, "All files must be removed")
+        let files: [File] = allDirectories.reduce([], { acc, nextDirectory in
+            let next = try? nextDirectory.files()
+            return acc + (next ?? [])
+        })
+        XCTAssertEqual(files, [], "All files must be removed")
 
         Datadog.flushAndDeinitialize()
     }

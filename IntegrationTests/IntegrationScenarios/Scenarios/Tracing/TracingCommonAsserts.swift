@@ -4,8 +4,9 @@
  * Copyright 2019-Present Datadog, Inc.
  */
 
-import XCTest
 import HTTPServerMock
+import TestUtilities
+import XCTest
 
 /// A set of common assertions for all Tracing tests.
 protocol TracingCommonAsserts {
@@ -33,16 +34,12 @@ extension TracingCommonAsserts {
         requests.forEach { request in
             XCTAssertEqual(request.httpMethod, "POST")
 
-            // Example path here: `/36882784-420B-494F-910D-CBAC5897A309`
-            XCTAssertFalse(
-                request.path.contains("?"),
-                """
-                Request path must contain no query parameters.
-                ✉️ path: \(request.path)
-                """,
-                file: file,
-                line: line
-            )
+            // Example path here: `/36882784-420B-494F-910D-CBAC5897A309?ddtags=retry_count:1`
+            XCTAssertFalse(request.path.isEmpty)
+            XCTAssertNil(request.queryItems)
+
+            let ddtags = request.queryItems?.ddtags()
+            XCTAssertNil(ddtags)
 
             XCTAssertEqual(request.httpHeaders["Content-Type"], "text/plain;charset=UTF-8", file: file, line: line)
             XCTAssertEqual(request.httpHeaders["User-Agent"]?.matches(regex: userAgentRegex), true, file: file, line: line)

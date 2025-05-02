@@ -52,7 +52,8 @@ class TracingURLSessionHandlerTests: XCTestCase {
     }
 
     func testGivenFirstPartyInterceptionWithNoError_itDoesNotSendLog() throws {
-        core.expectation = expectation(description: "Send span")
+        let expectation = expectation(description: "Send span")
+        core.onEventWriteContext = { _ in expectation.fulfill() }
 
         // Given
         let request: ImmutableRequest = .mockWith(httpMethod: "POST")
@@ -74,8 +75,9 @@ class TracingURLSessionHandlerTests: XCTestCase {
     }
 
     func testGivenFirstPartyInterceptionWithNetworkError_whenInterceptionCompletes_itEncodesRequestInfoInSpanAndSendsLog() throws {
-        core.expectation = expectation(description: "Send span and log")
-        core.expectation?.expectedFulfillmentCount = 2
+        let expectation = expectation(description: "Send span and log")
+        expectation.expectedFulfillmentCount = 2
+        core.onEventWriteContext = { _ in expectation.fulfill() }
 
         // Given
         let request: ImmutableRequest = .mockWith(
@@ -109,12 +111,13 @@ class TracingURLSessionHandlerTests: XCTestCase {
         XCTAssertEqual(span.tags[OTTags.httpUrl], request.url!.absoluteString)
         XCTAssertEqual(span.tags[OTTags.httpMethod], "GET")
         XCTAssertEqual(span.tags[SpanTags.errorType], "domain - 123")
+        XCTAssertEqual(span.tags[SpanTags.kind], "client")
         XCTAssertEqual(
             span.tags[SpanTags.errorStack],
             "Error Domain=domain Code=123 \"network error\" UserInfo={NSLocalizedDescription=network error}"
         )
         XCTAssertEqual(span.tags[SpanTags.errorMessage], "network error")
-        XCTAssertEqual(span.tags.count, 7)
+        XCTAssertEqual(span.tags.count, 8)
 
         let log: LogEvent = try XCTUnwrap(core.events().last, "It should send error log")
         XCTAssertEqual(log.status, .error)
@@ -145,8 +148,9 @@ class TracingURLSessionHandlerTests: XCTestCase {
     }
 
     func testGivenFirstPartyInterceptionWithClientError_whenInterceptionCompletes_itEncodesRequestInfoInSpanAndSendsLog() throws {
-        core.expectation = expectation(description: "Send span and log")
-        core.expectation?.expectedFulfillmentCount = 2
+        let expectation = expectation(description: "Send span and log")
+        expectation.expectedFulfillmentCount = 2
+        core.onEventWriteContext = { _ in expectation.fulfill() }
 
         // Given
         let request: ImmutableRequest = .mockWith(httpMethod: "GET")
@@ -178,11 +182,12 @@ class TracingURLSessionHandlerTests: XCTestCase {
         XCTAssertEqual(span.tags[OTTags.httpStatusCode], "404")
         XCTAssertEqual(span.tags[SpanTags.errorType], "HTTPURLResponse - 404")
         XCTAssertEqual(span.tags[SpanTags.errorMessage], "404 not found")
+        XCTAssertEqual(span.tags[SpanTags.kind], "client")
         XCTAssertEqual(
             span.tags[SpanTags.errorStack],
             "Error Domain=HTTPURLResponse Code=404 \"404 not found\" UserInfo={NSLocalizedDescription=404 not found}"
         )
-        XCTAssertEqual(span.tags.count, 8)
+        XCTAssertEqual(span.tags.count, 9)
 
         let log: LogEvent = try XCTUnwrap(core.events().last, "It should send error log")
         XCTAssertEqual(log.status, .error)
@@ -210,7 +215,18 @@ class TracingURLSessionHandlerTests: XCTestCase {
 
     func testGivenAllTracingHeaderTypes_itUsesTheSameIds() throws {
         let request: URLRequest = .mockWith(httpMethod: "GET")
-        let (modifiedRequest, _) = handler.modify(request: request, headerTypes: [.datadog, .tracecontext, .b3, .b3multi])
+        let fakeSessionId = "8b723a25-e941-47ea-9173-910c866ccf19"
+        let fakeRumContext: [String: String] = ["session.id": fakeSessionId]
+        let fakeContext: DatadogContext = .mockWith(
+            baggages: ["rum": FeatureBaggage(fakeRumContext)]
+        )
+        let message = FeatureMessage.context(fakeContext)
+        handler.contextReceiver.receive(message: message, from: core)
+        let (modifiedRequest, _) = handler.modify(
+            request: request,
+            headerTypes: [.datadog, .tracecontext, .b3, .b3multi],
+            networkContext: NetworkContext(rumContext: .init(sessionID: "abcdef01-2345-6789-abcd-ef0123456789"))
+        )
 
         XCTAssertEqual(
             modifiedRequest.allHTTPHeaderFields,
@@ -222,6 +238,7 @@ class TracingURLSessionHandlerTests: XCTestCase {
                 "b3": "000000000000000a0000000000000064-0000000000000064-1",
                 "x-datadog-trace-id": "100",
                 "x-datadog-tags": "_dd.p.tid=a",
+                "baggage": "session.id=\(fakeSessionId)",
                 "tracestate": "dd=p:0000000000000064;s:1",
                 "x-datadog-parent-id": "100",
                 "x-datadog-sampling-priority": "1"

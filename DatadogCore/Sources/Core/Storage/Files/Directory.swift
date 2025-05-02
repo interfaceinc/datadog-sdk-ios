@@ -7,8 +7,19 @@
 import Foundation
 import DatadogInternal
 
+extension Data {
+    static let empty = Data()
+}
+
+/// Provides interfaces for accessing common properties and operations for a directory.
+internal protocol DirectoryProtocol: FileProtocol {
+    /// Returns list of subdirectories in the directory.
+    /// - Returns: list of subdirectories.
+    func subdirectories() throws -> [Directory]
+}
+
 /// An abstraction over file system directory where SDK stores its files.
-internal struct Directory {
+internal struct Directory: DirectoryProtocol {
     let url: URL
 
     /// Creates subdirectory with given path under system caches directory.
@@ -19,6 +30,56 @@ internal struct Directory {
 
     init(url: URL) {
         self.url = url
+    }
+
+    func modifiedAt() throws -> Date? {
+        try FileManager.default.attributesOfItem(atPath: url.path)[.modificationDate] as? Date
+    }
+
+    /// Returns list of subdirectories using system APIs.
+    /// - Returns: list of subdirectories.
+    func subdirectories() throws -> [Directory] {
+        try FileManager.default
+            .contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey, .canonicalPathKey])
+            .filter { url in
+                var isDirectory = ObjCBool(false)
+                FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory)
+                return isDirectory.boolValue
+            }
+            .map { url in Directory(url: url) }
+    }
+
+    /// Recursively goes through subdirectories and finds the most recent modified file before given date.
+    /// This includes files in subdirectories, files in this directory and itself.
+    /// - Parameter before: The date to compare the last modification date of files.
+    /// - Returns: The latest modified file or `nil` if no files were modified before given date.
+    func mostRecentModifiedFile(before: Date) throws -> FileProtocol? {
+        let mostRecentModifiedInSubdirectories = try subdirectories()
+            .compactMap { directory in
+                try directory.mostRecentModifiedFile(before: before)
+            }
+            .max { file1, file2 in
+                guard let modifiedAt1 = try file1.modifiedAt(), let modifiedAt2 = try file2.modifiedAt() else {
+                    return false
+                }
+                return modifiedAt1 < modifiedAt2
+            }
+
+        let files = try self.files()
+
+        return try ([self, mostRecentModifiedInSubdirectories].compactMap { $0 } + files)
+            .filter {
+                guard let modifiedAt = try $0.modifiedAt() else {
+                    return false
+                }
+                return modifiedAt < before
+            }
+            .max { file1, file2 in
+                guard let modifiedAt1 = try file1.modifiedAt(), let modifiedAt2 = try file2.modifiedAt() else {
+                    return false
+                }
+                return modifiedAt1 < modifiedAt2
+            }
     }
 
     /// Creates subdirectory with given path by creating intermediate directories if needed.
@@ -46,12 +107,25 @@ internal struct Directory {
         }
     }
 
+    /// Returns directory at given path if it exists or `nil` otherwise. Throws if `path` exists but is not a directory.
+    func subdirectoryIfExists(path: String) throws -> Directory? {
+        let directoryURL = url.appendingPathComponent(path, isDirectory: true)
+        var isDirectory = ObjCBool(false)
+        let exists = FileManager.default.fileExists(atPath: directoryURL.path, isDirectory: &isDirectory)
+
+        guard exists else {
+            return nil
+        }
+        guard isDirectory.boolValue else {
+            throw InternalError(description: "Path is not a directory: \(directoryURL)")
+        }
+        return Directory(url: directoryURL)
+    }
+
     /// Creates file with given name.
     func createFile(named fileName: String) throws -> File {
         let fileURL = url.appendingPathComponent(fileName, isDirectory: false)
-        guard FileManager.default.createFile(atPath: fileURL.path, contents: nil, attributes: nil) == true else {
-            throw InternalError(description: "Cannot create file at path: \(fileURL.path)")
-        }
+        try Data.empty.write(to: fileURL, options: .atomic)
         return File(url: fileURL)
     }
 

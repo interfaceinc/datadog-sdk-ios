@@ -18,6 +18,7 @@ class RUMConfigurationTests: XCTestCase {
         XCTAssertEqual(config.telemetrySampleRate, 20)
         XCTAssertNil(config.uiKitViewsPredicate)
         XCTAssertNil(config.uiKitActionsPredicate)
+        XCTAssertNil(config.swiftUIViewsPredicate)
         XCTAssertNil(config.urlSessionTracking)
         XCTAssertTrue(config.trackFrustrations)
         XCTAssertFalse(config.trackBackgroundEvents)
@@ -31,5 +32,6 @@ class RUMConfigurationTests: XCTestCase {
         XCTAssertNil(config.longTaskEventMapper)
         XCTAssertNil(config.onSessionStart)
         XCTAssertNil(config.customEndpoint)
+        XCTAssertTrue(config.trackAnonymousUser)
     }
 }

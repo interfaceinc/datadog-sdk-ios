@@ -156,10 +156,54 @@ public struct CrossPlatformAttributes {
 
     /// Add "binary images" to the reportted error to assist with symbolication. Used by Unity for IL2CPP symbolicaiton
     public static let includeBinaryImages = "_dd.error.include_binary_images"
+
+    /// Custom Flutter vital - First Build Complete. The amount of time between a route change (the start of a view) and when the first
+    /// `build` method is complete. In nanoseconds since view start
+    public static let flutterFirstBuildComplete: String = "_dd.performance.first_build_complete"
+
+    /// Custom value for Interaction To Next view.
+    /// For Flutter this is the amount of time between an action occurring and the First Build Complete ocurring on the next view.
+    public static let customINVValue: String = "_dd.view.custom_inv_value"
 }
 
 public struct LaunchArguments {
     /// Each product should consider this argument to offer simple debugging experience. 
     /// For example, if this flag is present it can use no sampling.
     public static let Debug = "DD_DEBUG"
+}
+
+extension DatadogExtension where ExtendedType == [String: Any] {
+    public var swiftAttributes: [String: Encodable] {
+        type.mapValues { AnyEncodable($0) }
+    }
+}
+
+extension DatadogExtension where ExtendedType == [String: Encodable] {
+    public var objCAttributes: [String: Any] {
+        type.compactMapValues { ($0 as? AnyEncodable)?.value }
+    }
+}
+
+extension AttributeValue {
+    /// Instance Datadog extension point.
+    ///
+    /// `AttributeValue` aka `Encodable` is a protocol and cannot be extended
+    /// with conformance to`DatadogExtension`, so we need to define the `dd`
+    /// endpoint.
+    public var dd: DatadogExtension<AttributeValue> {
+        DatadogExtension(self)
+    }
+}
+
+extension DatadogExtension where ExtendedType == AttributeValue {
+    public func decode<T>(_: T.Type = T.self) -> T? {
+        switch type {
+        case let encodable as _AnyEncodable:
+            return encodable.value as? T
+        case let val as T:
+            return val
+        default:
+            return nil
+        }
+    }
 }

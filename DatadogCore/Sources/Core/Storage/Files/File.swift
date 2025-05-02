@@ -5,10 +5,18 @@
  */
 
 import Foundation
+import DatadogInternal
 
-#if SPM_BUILD
-import DatadogPrivate
-#endif
+/// Provides interfaces for accessing common properties and operations for a file.
+internal protocol FileProtocol {
+    /// URL of the file on the disk.
+    var url: URL { get }
+
+    /// Returns the date when the file was last modified. Returns `nil` if the file does not exist.
+    /// If the file is created and never modified, the creation date is returned.
+    /// - Returns: The date when the file was last modified.
+    func modifiedAt() throws -> Date?
+}
 
 /// Provides convenient interface for reading metadata and appending data to the file.
 internal protocol WritableFile {
@@ -27,6 +35,9 @@ internal protocol ReadableFile {
     /// Name of this file.
     var name: String { get }
 
+    /// Current size of this file.
+    func size() throws -> UInt64
+
     /// Creates InputStream for reading the available data from this file.
     func stream() throws -> InputStream
 
@@ -40,13 +51,17 @@ private enum FileError: Error {
 
 /// An immutable `struct` designed to provide optimized and thread safe interface for file manipulation.
 /// It doesn't own the file, which means the file presence is not guaranteed - the file can be deleted by OS at any time (e.g. due to memory pressure).
-internal struct File: WritableFile, ReadableFile {
+internal struct File: WritableFile, ReadableFile, FileProtocol, Equatable {
     let url: URL
     let name: String
 
     init(url: URL) {
         self.url = url
         self.name = url.lastPathComponent
+    }
+
+    func modifiedAt() throws -> Date? {
+        try FileManager.default.attributesOfItem(atPath: url.path)[.modificationDate] as? Date
     }
 
     /// Appends given data at the end of this file.
@@ -90,11 +105,11 @@ internal struct File: WritableFile, ReadableFile {
 
     private func legacyAppend(_ data: Data, to fileHandle: FileHandle) throws {
         defer {
-            try? objcExceptionHandler.rethrowToSwift {
+            try? objc_rethrow {
                 fileHandle.closeFile()
             }
         }
-        try objcExceptionHandler.rethrowToSwift {
+        try objc_rethrow {
             fileHandle.seekToEndOfFile()
             fileHandle.write(data)
         }

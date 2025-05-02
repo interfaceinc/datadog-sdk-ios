@@ -8,14 +8,12 @@ import Foundation
 import DatadogInternal
 
 extension RUMOperatingSystem {
-    init(context: DatadogContext) {
-        self.init(device: context.device)
-    }
-
     init(device: DeviceInfo) {
-        self.name = device.osName
-        self.version = device.osVersion
-        self.build = device.osBuildNumber
-        self.versionMajor = device.osVersion.split(separator: ".").first.map { String($0) } ?? device.osVersion
+        self.init(
+            build: device.osBuildNumber,
+            name: device.osName,
+            version: device.osVersion,
+            versionMajor: device.osVersionMajor
+        )
     }
 }

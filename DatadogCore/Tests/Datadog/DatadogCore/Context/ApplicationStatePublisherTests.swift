@@ -13,10 +13,10 @@ class ApplicationStatePublisherTests: XCTestCase {
     private let notificationCenter = NotificationCenter()
 
     private let supportedNotifications = [
-        (name: UIApplication.didBecomeActiveNotification, expectedState: AppState.active),
-        (name: UIApplication.willResignActiveNotification, expectedState: AppState.inactive),
-        (name: UIApplication.didEnterBackgroundNotification, expectedState: AppState.background),
-        (name: UIApplication.willEnterForegroundNotification, expectedState: AppState.inactive),
+        (name: ApplicationNotifications.didBecomeActive, expectedState: AppState.active),
+        (name: ApplicationNotifications.willResignActive, expectedState: AppState.inactive),
+        (name: ApplicationNotifications.didEnterBackground, expectedState: AppState.background),
+        (name: ApplicationNotifications.willEnterForeground, expectedState: AppState.inactive),
     ]
 
     // MARK: - Handling UIApplication Notifications
@@ -26,9 +26,9 @@ class ApplicationStatePublisherTests: XCTestCase {
 
         // Given
         let publisher = ApplicationStatePublisher(
-            initialState: .mockRandom(),
-            dateProvider: SystemDateProvider(),
-            notificationCenter: notificationCenter
+            appStateProvider: AppStateProviderMock(state: .mockRandom()),
+            notificationCenter: notificationCenter,
+            dateProvider: SystemDateProvider()
         )
 
         // When
@@ -57,9 +57,9 @@ class ApplicationStatePublisherTests: XCTestCase {
 
         // Given
         let publisher = ApplicationStatePublisher(
-            initialState: .mockRandom(),
-            dateProvider: RelativeDateProvider(startingFrom: .mockRandomInThePast(), advancingBySeconds: 1.0),
-            notificationCenter: notificationCenter
+            appStateProvider: AppStateProviderMock(state: .mockRandom()),
+            notificationCenter: notificationCenter,
+            dateProvider: RelativeDateProvider(startingFrom: .mockRandomInThePast(), advancingBySeconds: 1.0)
         )
 
         var receivedHistoryStates: [AppState?] = []

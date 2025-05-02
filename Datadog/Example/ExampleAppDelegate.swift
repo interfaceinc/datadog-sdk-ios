@@ -64,6 +64,7 @@ class ExampleAppDelegate: UIResponder, UIApplicationDelegate {
         // Enable Trace
         Trace.enable(
             with: Trace.Configuration(
+                tags: ["testing-tag": "my-value"], 
                 networkInfoEnabled: true,
                 customEndpoint: Environment.readCustomTraceURL()
             )
@@ -74,11 +75,14 @@ class ExampleAppDelegate: UIResponder, UIApplicationDelegate {
             with: RUM.Configuration(
                 applicationID: Environment.readRUMApplicationID(),
                 urlSessionTracking: .init(
+                    firstPartyHostsTracing: .traceWithHeaders(hostsWithHeaders: ["api.shopist.io": [.datadog]],sampleRate: 100),
                     resourceAttributesProvider: { req, resp, data, err in
                         print("⭐️ [Attributes Provider] data: \(String(describing: data))")
                         return [:]
-            }),
+                    }
+                ),
                 trackBackgroundEvents: true,
+                trackWatchdogTerminations: true,
                 customEndpoint: Environment.readCustomRUMURL(),
                 telemetrySampleRate: 100
             )

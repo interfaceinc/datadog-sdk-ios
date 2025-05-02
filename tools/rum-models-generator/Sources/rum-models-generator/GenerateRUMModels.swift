@@ -19,11 +19,11 @@ internal func generateRUMSwiftModels(from schema: URL) throws -> String {
              * Copyright 2019-Present Datadog, Inc.
              */
 
-            import DatadogInternal
-
             // This file was generated from JSON Schema. Do not modify it directly.
 
-            internal protocol RUMDataModel: Codable {}
+            // swiftlint:disable all
+
+            public protocol RUMDataModel: Codable {}
 
             """,
         footer: ""
@@ -40,7 +40,7 @@ internal func generateRUMSwiftModels(from schema: URL) throws -> String {
         .print(using: template, and: printer)
 }
 
-internal func generateRUMObjcInteropModels(from schema: URL) throws -> String {
+internal func generateRUMObjcInteropModels(from schema: URL, skip typesToSkip: Set<String>) throws -> String {
     let generator = ModelsGenerator()
 
     let template = OutputTemplate(
@@ -52,7 +52,7 @@ internal func generateRUMObjcInteropModels(from schema: URL) throws -> String {
              */
 
             import Foundation
-            import DatadogRUM
+            import DatadogInternal
 
             // This file was generated from JSON Schema. Do not modify it directly.
 
@@ -69,6 +69,7 @@ internal func generateRUMObjcInteropModels(from schema: URL) throws -> String {
 
     return try generator
         .generateCode(from: schema)
+        .skip(types: typesToSkip)
         .decorate(using: RUMCodeDecorator())
         .print(using: template, and: printer)
 }

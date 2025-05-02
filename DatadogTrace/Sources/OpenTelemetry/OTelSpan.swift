@@ -154,6 +154,24 @@ internal class OTelSpan: OpenTelemetryApi.Span {
         DD.logger.warn("\(#function) is not yet supported in `DatadogTrace`")
     }
 
+    func recordException(_ exception: any OpenTelemetryApi.SpanException, attributes: [String: OpenTelemetryApi.AttributeValue], timestamp: Date) {
+        // RUM-8558: `recordException()` should be based on `addEvent()` which we currently don't support.
+        // Ref.: https://github.com/open-telemetry/opentelemetry-swift/blob/1.13.0/Sources/OpenTelemetrySdk/Trace/RecordEventsReadableSpan.swift#L356
+        DD.logger.warn("\(#function) is not yet supported in `DatadogTrace`")
+    }
+
+    func recordException(_ exception: any OpenTelemetryApi.SpanException, attributes: [String: OpenTelemetryApi.AttributeValue]) {
+        DD.logger.warn("\(#function) is not yet supported in `DatadogTrace`")
+    }
+
+    func recordException(_ exception: any OpenTelemetryApi.SpanException, timestamp: Date) {
+        DD.logger.warn("\(#function) is not yet supported in `DatadogTrace`")
+    }
+
+    func recordException(_ exception: any OpenTelemetryApi.SpanException) {
+        DD.logger.warn("\(#function) is not yet supported in `DatadogTrace`")
+    }
+
     func end() {
         end(time: Date())
     }
@@ -167,7 +185,13 @@ internal class OTelSpan: OpenTelemetryApi.Span {
         isRecording = false
         tags = attributes.tags
 
-        // There is no need to lock here, because `DDSpan` is thread-safe
+        // set global tags
+        for (key, value) in tracer.tags {
+            ddSpan.setTag(key: key, value: value)
+        }
+
+        // set local tags
+        // local takes precedence over global
         for (key, value) in tags {
             ddSpan.setTag(key: key, value: value)
         }

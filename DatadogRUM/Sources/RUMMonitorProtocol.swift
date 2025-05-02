@@ -38,7 +38,7 @@ public enum RUMErrorSource {
 public protocol RUMMonitorProtocol: AnyObject {
     // MARK: - attributes
 
-    /// Adds a custom attribute to next RUM events.
+    /// Adds a custom attribute to the next RUM events.
     /// - Parameters:
     ///   - key: key for this attribute. See `AttributeKey` documentation for information about
     ///   nesting attribute values using dot `.` syntax.
@@ -46,10 +46,19 @@ public protocol RUMMonitorProtocol: AnyObject {
     ///   for information about nested encoding containers limitation.
     func addAttribute(forKey key: AttributeKey, value: AttributeValue)
 
-    /// Removes an attribute from next RUM events.
+    /// Adds multiple attributes to the next RUM events.
+    /// - Parameter attributes: dictionary with attributes. Each attribute is defined by a key `AttributeKey` and a value that conforms to `Encodable`.
+    func addAttributes(_ attributes: [AttributeKey: AttributeValue])
+
+    /// Removes an attribute from the next RUM events.
     /// Events created prior to this call will not lose this attribute.
     /// - Parameter key: key for the attribute that will be removed.
     func removeAttribute(forKey key: AttributeKey)
+
+    /// Removes multiple attributes from the next RUM events.
+    /// Events created prior to this call will not lose these attributes.
+    /// - Parameter keys: array of attribute keys that will be removed.
+    func removeAttributes(forKeys keys: [AttributeKey])
 
     // MARK: - session
 
@@ -109,6 +118,14 @@ public protocol RUMMonitorProtocol: AnyObject {
         attributes: [AttributeKey: AttributeValue]
     )
 
+    /// Adds view loading time to current RUM view based on the time elapsed since the view was started.
+    /// This method should be called only once per view.
+    /// If the view is not started, this method does nothing.
+    /// If the view is not active, this method does nothing.
+    /// - Parameter overwrite: if true, overwrites the previosuly calculated view loading time.
+    @_spi(Experimental)
+    func addViewLoadingTime(overwrite: Bool)
+
     // MARK: - custom timings
 
     /// Records a specific timing within the current RUM view.
@@ -126,7 +143,7 @@ public protocol RUMMonitorProtocol: AnyObject {
     ///   - stack: stack trace of the error. No specific format is required. If not specified, it will be inferred from `file` and `line`.
     ///   - source: the origin of the error.
     ///   - attributes: custom attributes to attach to this error.
-    ///   - file: the file in which the error occurred (the default is the `#filePath` of the caller).
+    ///   - file: the file in which the error occurred (the default is the `#fileID` of the caller).
     ///   - line: the line number on which the error occurred (the default is the `#line` of the caller).
     func addError(
         message: String,
@@ -187,7 +204,7 @@ public protocol RUMMonitorProtocol: AnyObject {
     )
 
     /// Adds temporal metrics to given RUM resource.
-    /// 
+    ///
     /// It must be called before the resource is stopped.
     /// - Parameters:
     ///   - resourceKey: the key representing the resource. It must match the one used to start the resource.
@@ -282,7 +299,7 @@ public protocol RUMMonitorProtocol: AnyObject {
     )
 
     /// Stops RUM action.
-    /// 
+    ///
     /// The action must be first started with `startAction(type:)`.
     /// - Parameters:
     ///   - type: the type of the action. It should match type passed when starting this action.
@@ -318,6 +335,13 @@ public protocol RUMMonitorProtocol: AnyObject {
     var debug: Bool { set get }
 }
 
+extension RUMMonitorProtocol {
+    /// It cannot be declared '@_spi' without a default implementation in a protocol extension
+    func addViewLoadingTime(overwrite: Bool) {
+        // no-op
+    }
+}
+
 // MARK: - NOP moniotor
 
 internal class NOPMonitor: RUMMonitorProtocol {
@@ -332,12 +356,15 @@ internal class NOPMonitor: RUMMonitorProtocol {
 
     func currentSessionID(completion: (String?) -> Void) { completion(nil) }
     func addAttribute(forKey key: AttributeKey, value: AttributeValue) { warn() }
+    func addAttributes(_ attributes: [AttributeKey: AttributeValue]) { warn() }
     func removeAttribute(forKey key: AttributeKey) { warn() }
+    func removeAttributes(forKeys keys: [AttributeKey]) {warn() }
     func stopSession() { warn() }
     func startView(viewController: UIViewController, name: String?, attributes: [AttributeKey: AttributeValue]) { warn() }
     func stopView(viewController: UIViewController, attributes: [AttributeKey: AttributeValue]) { warn() }
     func startView(key: String, name: String?, attributes: [AttributeKey: AttributeValue]) { warn() }
     func stopView(key: String, attributes: [AttributeKey: AttributeValue]) { warn() }
+    func addViewLoadingTime(overwrite: Bool) { warn() }
     func addTiming(name: String) { warn() }
     func addError(message: String, type: String?, stack: String?, source: RUMErrorSource, attributes: [AttributeKey: AttributeValue], file: StaticString?, line: UInt?) { warn() }
     func addError(error: Error, source: RUMErrorSource, attributes: [AttributeKey: AttributeValue]) { warn() }

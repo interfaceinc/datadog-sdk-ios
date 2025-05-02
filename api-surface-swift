@@ -46,6 +46,7 @@ public enum Datadog
     public static var verbosityLevel: CoreLoggerLevel?
     public static func isInitialized(instanceName name: String = CoreRegistry.defaultInstanceName) -> Bool
     public static func sdkInstance(named name: String) -> DatadogCoreProtocol
+    public static func setUserInfo(id: String,name: String? = nil,email: String? = nil,extraInfo: [AttributeKey: AttributeValue] = [:],in core: DatadogCoreProtocol = CoreRegistry.default)
     public static func setUserInfo(id: String? = nil,name: String? = nil,email: String? = nil,extraInfo: [AttributeKey: AttributeValue] = [:],in core: DatadogCoreProtocol = CoreRegistry.default)
     public static func addUserExtraInfo(_ extraInfo: [AttributeKey: AttributeValue?],in core: DatadogCoreProtocol = CoreRegistry.default)
     public static func set(trackingConsent: TrackingConsent, in core: DatadogCoreProtocol = CoreRegistry.default)
@@ -133,7 +134,7 @@ public struct Logger
         public var remoteSampleRate: Float
         public var remoteLogThreshold: LogLevel
         public var consoleLogFormat: ConsoleLogFormat?
-        public init(service: String? = nil,name: String? = nil,networkInfoEnabled: Bool = false,bundleWithRumEnabled: Bool = true,bundleWithTraceEnabled: Bool = true,remoteSampleRate: Float = 100,remoteLogThreshold: LogLevel = .debug,consoleLogFormat: ConsoleLogFormat? = nil)
+        public init(service: String? = nil,name: String? = nil,networkInfoEnabled: Bool = false,bundleWithRumEnabled: Bool = true,bundleWithTraceEnabled: Bool = true,remoteSampleRate: Float = .maxSampleRate,remoteLogThreshold: LogLevel = .debug,consoleLogFormat: ConsoleLogFormat? = nil)
     public static func create(with configuration: Configuration = .init(),in core: DatadogCoreProtocol = CoreRegistry.default) -> LoggerProtocol
 public protocol InternalLoggerProtocol
     func log(level: LogLevel,message: String,errorKind: String?,errorMessage: String?,stackTrace: String?,attributes: [String: Encodable]?)
@@ -148,7 +149,7 @@ public enum LogLevel: Int, Codable
     case critical
 [?] extension CoreLoggerLevel
     public init(logLevel: LogLevel)
-public protocol LoggerProtocol
+public protocol LoggerProtocol: Sendable
     func log(level: LogLevel, message: String, error: Error?, attributes: [String: Encodable]?)
     func addAttribute(forKey key: AttributeKey, value: AttributeValue)
     func removeAttribute(forKey key: AttributeKey)
@@ -284,6 +285,24 @@ public struct SpanEvent: Encodable
     public let applicationVersion: String
     public let networkConnectionInfo: NetworkConnectionInfo?
     public let mobileCarrierInfo: CarrierInfo?
+    public struct DeviceInfo: Codable
+        public enum DeviceType: String, Codable
+            case mobile = "mobile"
+            case tablet = "tablet"
+            case tv = "tv"
+            case other = "other"
+        public let brand: String
+        public let name: String
+        public let model: String
+        public let architecture: String
+        public let type: DeviceType
+    public let deviceInfo: DeviceInfo
+    public struct OperatingSystemInfo: Codable
+        public let name: String
+        public let version: String
+        public let build: String?
+        public let versionMajor: String
+    public let osInfo: OperatingSystemInfo
     public struct UserInfo
         public let id: String?
         public let name: String?
@@ -295,9 +314,9 @@ public struct SpanEvent: Encodable
 public enum Trace
     public static func enable(with configuration: Trace.Configuration = .init(), in core: DatadogCoreProtocol = CoreRegistry.default)
 [?] extension Trace
-    public struct Configuration
+    public struct Configuration: SampledTelemetry
         public typealias EventMapper = (SpanEvent) -> SpanEvent
-        public var sampleRate: Float
+        public var sampleRate: SampleRate
         public var service: String?
         public var tags: [String: Encodable]?
         public var urlSessionTracking: URLSessionTracking?
@@ -311,7 +330,7 @@ public enum Trace
                 case trace(hosts: Set<String>,sampleRate: Float = 20,traceControlInjection: TraceContextInjection = .all)
                 case traceWithHeaders(hostsWithHeaders: [String: Set<TracingHeaderType>],sampleRate: Float = 20,traceControlInjection: TraceContextInjection = .all)
             public init(firstPartyHostsTracing: FirstPartyHostsTracing)
-        public init(sampleRate: Float = 100,service: String? = nil,tags: [String: Encodable]? = nil,urlSessionTracking: URLSessionTracking? = nil,bundleWithRumEnabled: Bool = true,networkInfoEnabled: Bool = false,eventMapper: EventMapper? = nil,customEndpoint: URL? = nil)
+        public init(sampleRate: SampleRate = .maxSampleRate,service: String? = nil,tags: [String: Encodable]? = nil,urlSessionTracking: URLSessionTracking? = nil,bundleWithRumEnabled: Bool = true,networkInfoEnabled: Bool = false,eventMapper: EventMapper? = nil,customEndpoint: URL? = nil)
 public enum SpanTags
     public static let resource = "resource.name"
     public static let operation = "operation.name"
@@ -325,7 +344,8 @@ public class Tracer
 # ----------------------------------
 
 public struct RUMActionEvent: RUMDataModel
-    public let dd: DD
+    public var dd: DD
+    public var account: Account?
     public var action: Action
     public let application: Application
     public let buildId: String?
@@ -333,7 +353,7 @@ public struct RUMActionEvent: RUMDataModel
     public let ciTest: RUMCITest?
     public let connectivity: RUMConnectivity?
     public let container: Container?
-    public internal(set) var context: RUMEventAttributes?
+    public var context: RUMEventAttributes?
     public let date: Int64
     public let device: RUMDevice?
     public let display: Display?
@@ -343,18 +363,26 @@ public struct RUMActionEvent: RUMDataModel
     public let source: Source?
     public let synthetics: RUMSyntheticsTest?
     public let type: String = "action"
-    public internal(set) var usr: RUMUser?
+    public var usr: RUMUser?
     public let version: String?
     public var view: View
     public struct DD: Codable
-        public let action: Action?
+        public var action: Action?
         public let browserSdkVersion: String?
         public let configuration: Configuration?
         public let formatVersion: Int64 = 2
         public let session: Session?
         public struct Action: Codable
+            public var nameSource: NameSource?
             public let position: Position?
             public let target: Target?
+            public enum NameSource: String, Codable
+                case customAttribute = "custom_attribute"
+                case maskPlaceholder = "mask_placeholder"
+                case standardAttribute = "standard_attribute"
+                case textContent = "text_content"
+                case maskDisallowed = "mask_disallowed"
+                case blank = "blank"
             public struct Position: Codable
                 public let x: Int64
                 public let y: Int64
@@ -371,6 +399,10 @@ public struct RUMActionEvent: RUMDataModel
             public enum Plan: Int, Codable
                 case plan1 = 1
                 case plan2 = 2
+    public struct Account: Codable
+        public let id: String
+        public let name: String?
+        public var accountInfo: [String: Encodable]
     public struct Action: Codable
         public let crash: Crash?
         public let error: Error?
@@ -420,6 +452,7 @@ public struct RUMActionEvent: RUMDataModel
             case reactNative = "react-native"
             case roku = "roku"
             case unity = "unity"
+            case kotlinMultiplatform = "kotlin-multiplatform"
         public struct View: Codable
             public let id: String
     public struct Display: Codable
@@ -439,14 +472,19 @@ public struct RUMActionEvent: RUMDataModel
         case reactNative = "react-native"
         case roku = "roku"
         case unity = "unity"
+        case kotlinMultiplatform = "kotlin-multiplatform"
     public struct View: Codable
         public let id: String
         public let inForeground: Bool?
         public var name: String?
         public var referrer: String?
         public var url: String
+[?] extension RUMActionEvent.Account
+    public func encode(to encoder: Encoder) throws
+    public init(from decoder: Decoder) throws
 public struct RUMErrorEvent: RUMDataModel
     public let dd: DD
+    public var account: Account?
     public let action: Action?
     public let application: Application
     public let buildId: String?
@@ -454,12 +492,12 @@ public struct RUMErrorEvent: RUMDataModel
     public let ciTest: RUMCITest?
     public let connectivity: RUMConnectivity?
     public let container: Container?
-    public internal(set) var context: RUMEventAttributes?
+    public var context: RUMEventAttributes?
     public let date: Int64
     public let device: RUMDevice?
     public let display: Display?
     public var error: Error
-    public internal(set) var featureFlags: FeatureFlags?
+    public var featureFlags: FeatureFlags?
     public let freeze: Freeze?
     public let os: RUMOperatingSystem?
     public let service: String?
@@ -467,7 +505,7 @@ public struct RUMErrorEvent: RUMDataModel
     public let source: Source?
     public let synthetics: RUMSyntheticsTest?
     public let type: String = "error"
-    public internal(set) var usr: RUMUser?
+    public var usr: RUMUser?
     public let version: String?
     public var view: View
     public struct DD: Codable
@@ -484,6 +522,10 @@ public struct RUMErrorEvent: RUMDataModel
             public enum Plan: Int, Codable
                 case plan1 = 1
                 case plan2 = 2
+    public struct Account: Codable
+        public let id: String
+        public let name: String?
+        public var accountInfo: [String: Encodable]
     public struct Action: Codable
         public let id: RUMActionID
     public struct Application: Codable
@@ -499,6 +541,7 @@ public struct RUMErrorEvent: RUMDataModel
             case reactNative = "react-native"
             case roku = "roku"
             case unity = "unity"
+            case kotlinMultiplatform = "kotlin-multiplatform"
         public struct View: Codable
             public let id: String
     public struct Display: Codable
@@ -537,6 +580,8 @@ public struct RUMErrorEvent: RUMDataModel
             case aNR = "ANR"
             case appHang = "App Hang"
             case exception = "Exception"
+            case watchdogTermination = "Watchdog Termination"
+            case memoryWarning = "Memory Warning"
         public struct Causes: Codable
             public var message: String
             public let source: Source
@@ -616,7 +661,7 @@ public struct RUMErrorEvent: RUMDataModel
             public let stack: String
             public let state: String?
     public struct FeatureFlags: Codable
-        public internal(set) var featureFlagsInfo: [String: Encodable]
+        public var featureFlagsInfo: [String: Encodable]
     public struct Freeze: Codable
         public let duration: Int64
     public struct Session: Codable
@@ -631,17 +676,22 @@ public struct RUMErrorEvent: RUMDataModel
         case reactNative = "react-native"
         case roku = "roku"
         case unity = "unity"
+        case kotlinMultiplatform = "kotlin-multiplatform"
     public struct View: Codable
         public let id: String
         public let inForeground: Bool?
         public var name: String?
         public var referrer: String?
         public var url: String
+[?] extension RUMErrorEvent.Account
+    public func encode(to encoder: Encoder) throws
+    public init(from decoder: Decoder) throws
 [?] extension RUMErrorEvent.FeatureFlags
     public func encode(to encoder: Encoder) throws
     public init(from decoder: Decoder) throws
 public struct RUMLongTaskEvent: RUMDataModel
     public let dd: DD
+    public var account: Account?
     public let action: Action?
     public let application: Application
     public let buildId: String?
@@ -649,7 +699,7 @@ public struct RUMLongTaskEvent: RUMDataModel
     public let ciTest: RUMCITest?
     public let connectivity: RUMConnectivity?
     public let container: Container?
-    public internal(set) var context: RUMEventAttributes?
+    public var context: RUMEventAttributes?
     public let date: Int64
     public let device: RUMDevice?
     public let display: Display?
@@ -660,7 +710,7 @@ public struct RUMLongTaskEvent: RUMDataModel
     public let source: Source?
     public let synthetics: RUMSyntheticsTest?
     public let type: String = "long_task"
-    public internal(set) var usr: RUMUser?
+    public var usr: RUMUser?
     public let version: String?
     public var view: View
     public struct DD: Codable
@@ -678,6 +728,10 @@ public struct RUMLongTaskEvent: RUMDataModel
             public enum Plan: Int, Codable
                 case plan1 = 1
                 case plan2 = 2
+    public struct Account: Codable
+        public let id: String
+        public let name: String?
+        public var accountInfo: [String: Encodable]
     public struct Action: Codable
         public let id: RUMActionID
     public struct Application: Codable
@@ -693,6 +747,7 @@ public struct RUMLongTaskEvent: RUMDataModel
             case reactNative = "react-native"
             case roku = "roku"
             case unity = "unity"
+            case kotlinMultiplatform = "kotlin-multiplatform"
         public struct View: Codable
             public let id: String
     public struct Display: Codable
@@ -701,9 +756,38 @@ public struct RUMLongTaskEvent: RUMDataModel
             public let height: Double
             public let width: Double
     public struct LongTask: Codable
+        public let blockingDuration: Int64?
         public let duration: Int64
+        public let entryType: EntryType?
+        public let firstUiEventTimestamp: Double?
         public let id: String?
         public let isFrozenFrame: Bool?
+        public let renderStart: Double?
+        public let scripts: [Scripts]?
+        public let startTime: Double?
+        public let styleAndLayoutStart: Double?
+        public enum EntryType: String, Codable
+            case longTask = "long-task"
+            case longAnimationFrame = "long-animation-frame"
+        public struct Scripts: Codable
+            public let duration: Int64?
+            public let executionStart: Double?
+            public let forcedStyleAndLayoutDuration: Int64?
+            public let invoker: String?
+            public let invokerType: InvokerType?
+            public let pauseDuration: Int64?
+            public let sourceCharPosition: Int64?
+            public let sourceFunctionName: String?
+            public let sourceUrl: String?
+            public let startTime: Double?
+            public let windowAttribution: String?
+            public enum InvokerType: String, Codable
+                case userCallback = "user-callback"
+                case eventListener = "event-listener"
+                case resolvePromise = "resolve-promise"
+                case rejectPromise = "reject-promise"
+                case classicScript = "classic-script"
+                case moduleScript = "module-script"
     public struct Session: Codable
         public let hasReplay: Bool?
         public let id: String
@@ -716,13 +800,18 @@ public struct RUMLongTaskEvent: RUMDataModel
         case reactNative = "react-native"
         case roku = "roku"
         case unity = "unity"
+        case kotlinMultiplatform = "kotlin-multiplatform"
     public struct View: Codable
         public let id: String
         public var name: String?
         public var referrer: String?
         public var url: String
+[?] extension RUMLongTaskEvent.Account
+    public func encode(to encoder: Encoder) throws
+    public init(from decoder: Decoder) throws
 public struct RUMResourceEvent: RUMDataModel
     public let dd: DD
+    public var account: Account?
     public let action: Action?
     public let application: Application
     public let buildId: String?
@@ -730,7 +819,7 @@ public struct RUMResourceEvent: RUMDataModel
     public let ciTest: RUMCITest?
     public let connectivity: RUMConnectivity?
     public let container: Container?
-    public internal(set) var context: RUMEventAttributes?
+    public var context: RUMEventAttributes?
     public let date: Int64
     public let device: RUMDevice?
     public let display: Display?
@@ -741,7 +830,7 @@ public struct RUMResourceEvent: RUMDataModel
     public let source: Source?
     public let synthetics: RUMSyntheticsTest?
     public let type: String = "resource"
-    public internal(set) var usr: RUMUser?
+    public var usr: RUMUser?
     public let version: String?
     public var view: View
     public struct DD: Codable
@@ -762,6 +851,10 @@ public struct RUMResourceEvent: RUMDataModel
             public enum Plan: Int, Codable
                 case plan1 = 1
                 case plan2 = 2
+    public struct Account: Codable
+        public let id: String
+        public let name: String?
+        public var accountInfo: [String: Encodable]
     public struct Action: Codable
         public let id: RUMActionID
     public struct Application: Codable
@@ -777,6 +870,7 @@ public struct RUMResourceEvent: RUMDataModel
             case reactNative = "react-native"
             case roku = "roku"
             case unity = "unity"
+            case kotlinMultiplatform = "kotlin-multiplatform"
         public struct View: Codable
             public let id: String
     public struct Display: Codable
@@ -787,6 +881,7 @@ public struct RUMResourceEvent: RUMDataModel
     public struct Resource: Codable
         public let connect: Connect?
         public let decodedBodySize: Int64?
+        public let deliveryType: DeliveryType?
         public let dns: DNS?
         public let download: Download?
         public let duration: Int64?
@@ -795,6 +890,7 @@ public struct RUMResourceEvent: RUMDataModel
         public var graphql: Graphql?
         public let id: String?
         public let method: RUMMethod?
+        public let `protocol`: String?
         public let provider: Provider?
         public let redirect: Redirect?
         public let renderBlockingStatus: RenderBlockingStatus?
@@ -804,9 +900,14 @@ public struct RUMResourceEvent: RUMDataModel
         public let transferSize: Int64?
         public let type: ResourceType
         public var url: String
+        public let worker: Worker?
         public struct Connect: Codable
             public let duration: Int64
             public let start: Int64
+        public enum DeliveryType: String, Codable
+            case cache = "cache"
+            case navigationalPrefetch = "navigational-prefetch"
+            case other = "other"
         public struct DNS: Codable
             public let duration: Int64
             public let start: Int64
@@ -865,6 +966,9 @@ public struct RUMResourceEvent: RUMDataModel
             case media = "media"
             case other = "other"
             case native = "native"
+        public struct Worker: Codable
+            public let duration: Int64
+            public let start: Int64
     public struct Session: Codable
         public let hasReplay: Bool?
         public let id: String
@@ -877,24 +981,29 @@ public struct RUMResourceEvent: RUMDataModel
         case reactNative = "react-native"
         case roku = "roku"
         case unity = "unity"
+        case kotlinMultiplatform = "kotlin-multiplatform"
     public struct View: Codable
         public let id: String
         public var name: String?
         public var referrer: String?
         public var url: String
+[?] extension RUMResourceEvent.Account
+    public func encode(to encoder: Encoder) throws
+    public init(from decoder: Decoder) throws
 public struct RUMViewEvent: RUMDataModel
     public let dd: DD
+    public var account: Account?
     public let application: Application
     public let buildId: String?
     public let buildVersion: String?
     public let ciTest: RUMCITest?
     public let connectivity: RUMConnectivity?
     public let container: Container?
-    public internal(set) var context: RUMEventAttributes?
+    public var context: RUMEventAttributes?
     public let date: Int64
     public let device: RUMDevice?
     public let display: Display?
-    public internal(set) var featureFlags: FeatureFlags?
+    public var featureFlags: FeatureFlags?
     public let os: RUMOperatingSystem?
     public let privacy: Privacy?
     public let service: String?
@@ -902,7 +1011,7 @@ public struct RUMViewEvent: RUMDataModel
     public let source: Source?
     public let synthetics: RUMSyntheticsTest?
     public let type: String = "view"
-    public internal(set) var usr: RUMUser?
+    public var usr: RUMUser?
     public let version: String?
     public var view: View
     public struct DD: Codable
@@ -936,6 +1045,10 @@ public struct RUMViewEvent: RUMDataModel
             public enum Plan: Int, Codable
                 case plan1 = 1
                 case plan2 = 2
+    public struct Account: Codable
+        public let id: String
+        public let name: String?
+        public var accountInfo: [String: Encodable]
     public struct Application: Codable
         public let id: String
     public struct Container: Codable
@@ -949,6 +1062,7 @@ public struct RUMViewEvent: RUMDataModel
             case reactNative = "react-native"
             case roku = "roku"
             case unity = "unity"
+            case kotlinMultiplatform = "kotlin-multiplatform"
         public struct View: Codable
             public let id: String
     public struct Display: Codable
@@ -963,7 +1077,7 @@ public struct RUMViewEvent: RUMDataModel
             public let height: Double
             public let width: Double
     public struct FeatureFlags: Codable
-        public internal(set) var featureFlagsInfo: [String: Encodable]
+        public var featureFlagsInfo: [String: Encodable]
     public struct Privacy: Codable
         public let replayLevel: ReplayLevel
         public enum ReplayLevel: String, Codable
@@ -984,6 +1098,7 @@ public struct RUMViewEvent: RUMDataModel
         case reactNative = "react-native"
         case roku = "roku"
         case unity = "unity"
+        case kotlinMultiplatform = "kotlin-multiplatform"
     public struct View: Codable
         public let action: Action
         public let cpuTicksCount: Double?
@@ -991,6 +1106,7 @@ public struct RUMViewEvent: RUMDataModel
         public let crash: Crash?
         public let cumulativeLayoutShift: Double?
         public let cumulativeLayoutShiftTargetSelector: String?
+        public let cumulativeLayoutShiftTime: Int64?
         public let customTimings: [String: Int64]?
         public let domComplete: Int64?
         public let domContentLoaded: Int64?
@@ -1009,6 +1125,8 @@ public struct RUMViewEvent: RUMDataModel
         public let inForegroundPeriods: [InForegroundPeriods]?
         public let interactionToNextPaint: Int64?
         public let interactionToNextPaintTargetSelector: String?
+        public let interactionToNextPaintTime: Int64?
+        public let interactionToNextViewTime: Int64?
         public let isActive: Bool?
         public let isSlowRendered: Bool?
         public let jsRefreshRate: JsRefreshRate?
@@ -1021,6 +1139,8 @@ public struct RUMViewEvent: RUMDataModel
         public let memoryAverage: Double?
         public let memoryMax: Double?
         public var name: String?
+        public let networkSettledTime: Int64?
+        public var performance: Performance?
         public var referrer: String?
         public let refreshRateAverage: Double?
         public let refreshRateMin: Double?
@@ -1066,20 +1186,63 @@ public struct RUMViewEvent: RUMDataModel
             case viewControllerRedisplay = "view_controller_redisplay"
         public struct LongTask: Codable
             public let count: Int64
+        public struct Performance: Codable
+            public let cls: CLS?
+            public let fbc: FBC?
+            public let fcp: FCP?
+            public let fid: FID?
+            public let inp: INP?
+            public var lcp: LCP?
+            public struct CLS: Codable
+                public let currentRect: CurrentRect?
+                public let previousRect: PreviousRect?
+                public let score: Double
+                public let targetSelector: String?
+                public let timestamp: Int64?
+                public struct CurrentRect: Codable
+                    public let height: Double
+                    public let width: Double
+                    public let x: Double
+                    public let y: Double
+                public struct PreviousRect: Codable
+                    public let height: Double
+                    public let width: Double
+                    public let x: Double
+                    public let y: Double
+            public struct FBC: Codable
+                public let timestamp: Int64
+            public struct FCP: Codable
+                public let timestamp: Int64
+            public struct FID: Codable
+                public let duration: Int64
+                public let targetSelector: String?
+                public let timestamp: Int64
+            public struct INP: Codable
+                public let duration: Int64
+                public let targetSelector: String?
+                public let timestamp: Int64?
+            public struct LCP: Codable
+                public var resourceUrl: String?
+                public let targetSelector: String?
+                public let timestamp: Int64
         public struct Resource: Codable
             public let count: Int64
+[?] extension RUMViewEvent.Account
+    public func encode(to encoder: Encoder) throws
+    public init(from decoder: Decoder) throws
 [?] extension RUMViewEvent.FeatureFlags
     public func encode(to encoder: Encoder) throws
     public init(from decoder: Decoder) throws
 public struct RUMVitalEvent: RUMDataModel
     public let dd: DD
+    public var account: Account?
     public let application: Application
     public let buildId: String?
     public let buildVersion: String?
     public let ciTest: RUMCITest?
     public let connectivity: RUMConnectivity?
     public let container: Container?
-    public internal(set) var context: RUMEventAttributes?
+    public var context: RUMEventAttributes?
     public let date: Int64
     public let device: RUMDevice?
     public let display: Display?
@@ -1089,7 +1252,7 @@ public struct RUMVitalEvent: RUMDataModel
     public let source: Source?
     public let synthetics: RUMSyntheticsTest?
     public let type: String = "vital"
-    public internal(set) var usr: RUMUser?
+    public var usr: RUMUser?
     public let version: String?
     public var view: View
     public let vital: Vital
@@ -1098,6 +1261,7 @@ public struct RUMVitalEvent: RUMDataModel
         public let configuration: Configuration?
         public let formatVersion: Int64 = 2
         public let session: Session?
+        public let vital: Vital?
         public struct Configuration: Codable
             public let sessionReplaySampleRate: Double?
             public let sessionSampleRate: Double
@@ -1107,6 +1271,12 @@ public struct RUMVitalEvent: RUMDataModel
             public enum Plan: Int, Codable
                 case plan1 = 1
                 case plan2 = 2
+        public struct Vital: Codable
+            public let computedValue: Bool?
+    public struct Account: Codable
+        public let id: String
+        public let name: String?
+        public var accountInfo: [String: Encodable]
     public struct Application: Codable
         public let id: String
     public struct Container: Codable
@@ -1120,6 +1290,7 @@ public struct RUMVitalEvent: RUMDataModel
             case reactNative = "react-native"
             case roku = "roku"
             case unity = "unity"
+            case kotlinMultiplatform = "kotlin-multiplatform"
         public struct View: Codable
             public let id: String
     public struct Display: Codable
@@ -1139,6 +1310,7 @@ public struct RUMVitalEvent: RUMDataModel
         case reactNative = "react-native"
         case roku = "roku"
         case unity = "unity"
+        case kotlinMultiplatform = "kotlin-multiplatform"
     public struct View: Codable
         public let id: String
         public var name: String?
@@ -1146,92 +1318,22 @@ public struct RUMVitalEvent: RUMDataModel
         public var url: String
     public struct Vital: Codable
         public let custom: [String: Double]?
+        public let vitalDescription: String?
+        public let duration: Double?
         public let id: String
         public let name: String?
         public let type: VitalType
         public enum VitalType: String, Codable
             case duration = "duration"
+[?] extension RUMVitalEvent.Account
+    public func encode(to encoder: Encoder) throws
+    public init(from decoder: Decoder) throws
 public struct TelemetryErrorEvent: RUMDataModel
     public let dd: DD
     public let action: Action?
     public let application: Application?
     public let date: Int64
-    public let experimentalFeatures: [String]?
-    public let service: String
-    public let session: Session?
-    public let source: Source
-    public let telemetry: Telemetry
-    public let type: String = "telemetry"
-    public let version: String
-    public let view: View?
-    public struct DD: Codable
-        public let formatVersion: Int64 = 2
-    public struct Action: Codable
-        public let id: String
-    public struct Application: Codable
-        public let id: String
-    public struct Session: Codable
-        public let id: String
-    public enum Source: String, Codable
-        case android = "android"
-        case ios = "ios"
-        case browser = "browser"
-        case flutter = "flutter"
-        case reactNative = "react-native"
-        case unity = "unity"
-    public struct Telemetry: Codable
-        public let error: Error?
-        public let message: String
-        public let status: String = "error"
-        public let type: String? = "log"
-        public struct Error: Codable
-            public let kind: String?
-            public let stack: String?
-    public struct View: Codable
-        public let id: String
-public struct TelemetryDebugEvent: RUMDataModel
-    public let dd: DD
-    public let action: Action?
-    public let application: Application?
-    public let date: Int64
-    public let experimentalFeatures: [String]?
-    public let service: String
-    public let session: Session?
-    public let source: Source
-    public internal(set) var telemetry: Telemetry
-    public let type: String = "telemetry"
-    public let version: String
-    public let view: View?
-    public struct DD: Codable
-        public let formatVersion: Int64 = 2
-    public struct Action: Codable
-        public let id: String
-    public struct Application: Codable
-        public let id: String
-    public struct Session: Codable
-        public let id: String
-    public enum Source: String, Codable
-        case android = "android"
-        case ios = "ios"
-        case browser = "browser"
-        case flutter = "flutter"
-        case reactNative = "react-native"
-        case unity = "unity"
-    public struct Telemetry: Codable
-        public let message: String
-        public let status: String = "debug"
-        public let type: String? = "log"
-        public internal(set) var telemetryInfo: [String: Encodable]
-    public struct View: Codable
-        public let id: String
-[?] extension TelemetryDebugEvent.Telemetry
-    public func encode(to encoder: Encoder) throws
-    public init(from decoder: Decoder) throws
-public struct TelemetryConfigurationEvent: RUMDataModel
-    public let dd: DD
-    public let action: Action?
-    public let application: Application?
-    public let date: Int64
+    public let effectiveSampleRate: Double?
     public let experimentalFeatures: [String]?
     public let service: String
     public let session: Session?
@@ -1255,9 +1357,101 @@ public struct TelemetryConfigurationEvent: RUMDataModel
         case flutter = "flutter"
         case reactNative = "react-native"
         case unity = "unity"
+        case kotlinMultiplatform = "kotlin-multiplatform"
+    public struct Telemetry: Codable
+        public let device: RUMTelemetryDevice?
+        public let error: Error?
+        public let message: String
+        public let os: RUMTelemetryOperatingSystem?
+        public let status: String = "error"
+        public let type: String? = "log"
+        public var telemetryInfo: [String: Encodable]
+        public struct Error: Codable
+            public let kind: String?
+            public let stack: String?
+    public struct View: Codable
+        public let id: String
+[?] extension TelemetryErrorEvent.Telemetry
+    public func encode(to encoder: Encoder) throws
+    public init(from decoder: Decoder) throws
+public struct TelemetryDebugEvent: RUMDataModel
+    public let dd: DD
+    public let action: Action?
+    public let application: Application?
+    public let date: Int64
+    public let effectiveSampleRate: Double?
+    public let experimentalFeatures: [String]?
+    public let service: String
+    public let session: Session?
+    public let source: Source
+    public var telemetry: Telemetry
+    public let type: String = "telemetry"
+    public let version: String
+    public let view: View?
+    public struct DD: Codable
+        public let formatVersion: Int64 = 2
+    public struct Action: Codable
+        public let id: String
+    public struct Application: Codable
+        public let id: String
+    public struct Session: Codable
+        public let id: String
+    public enum Source: String, Codable
+        case android = "android"
+        case ios = "ios"
+        case browser = "browser"
+        case flutter = "flutter"
+        case reactNative = "react-native"
+        case unity = "unity"
+        case kotlinMultiplatform = "kotlin-multiplatform"
+    public struct Telemetry: Codable
+        public let device: RUMTelemetryDevice?
+        public let message: String
+        public let os: RUMTelemetryOperatingSystem?
+        public let status: String = "debug"
+        public let type: String? = "log"
+        public var telemetryInfo: [String: Encodable]
+    public struct View: Codable
+        public let id: String
+[?] extension TelemetryDebugEvent.Telemetry
+    public func encode(to encoder: Encoder) throws
+    public init(from decoder: Decoder) throws
+public struct TelemetryConfigurationEvent: RUMDataModel
+    public let dd: DD
+    public let action: Action?
+    public let application: Application?
+    public let date: Int64
+    public let effectiveSampleRate: Double?
+    public let experimentalFeatures: [String]?
+    public let service: String
+    public let session: Session?
+    public let source: Source
+    public var telemetry: Telemetry
+    public let type: String = "telemetry"
+    public let version: String
+    public let view: View?
+    public struct DD: Codable
+        public let formatVersion: Int64 = 2
+    public struct Action: Codable
+        public let id: String
+    public struct Application: Codable
+        public let id: String
+    public struct Session: Codable
+        public let id: String
+    public enum Source: String, Codable
+        case android = "android"
+        case ios = "ios"
+        case browser = "browser"
+        case flutter = "flutter"
+        case reactNative = "react-native"
+        case unity = "unity"
+        case kotlinMultiplatform = "kotlin-multiplatform"
     public struct Telemetry: Codable
         public var configuration: Configuration
+        public let device: RUMTelemetryDevice?
+        public let os: RUMTelemetryOperatingSystem?
         public let type: String = "configuration"
+        public var telemetryInfo: [String: Encodable]
         public struct Configuration: Codable
             public let actionNameAttribute: String?
             public let allowFallbackToLocalStorage: Bool?
@@ -1270,31 +1464,44 @@ public struct TelemetryConfigurationEvent: RUMDataModel
             public let compressIntakeRequests: Bool?
             public var dartVersion: String?
             public var defaultPrivacyLevel: String?
+            public var enablePrivacyForActionName: Bool?
             public let forwardConsoleLogs: ForwardConsoleLogs?
             public let forwardErrorsToLogs: Bool?
             public let forwardReports: ForwardReports?
+            public var imagePrivacyLevel: String?
             public var initializationType: String?
+            public let invTimeThresholdMs: Int64?
+            public let isMainProcess: Bool?
             public var mobileVitalsUpdatePeriod: Int64?
+            public var plugins: [Plugins]?
             public let premiumSampleRate: Int64?
             public var reactNativeVersion: String?
             public var reactVersion: String?
             public let replaySampleRate: Int64?
             public let selectedTracingPropagators: [SelectedTracingPropagators]?
+            public var sendLogsAfterSessionExpiration: Bool?
+            public let sessionPersistence: SessionPersistence?
             public var sessionReplaySampleRate: Int64?
             public let sessionSampleRate: Int64?
             public let silentMultipleInit: Bool?
+            public var startRecordingImmediately: Bool?
             public var startSessionReplayRecordingManually: Bool?
             public let storeContextsAcrossPages: Bool?
             public let telemetryConfigurationSampleRate: Int64?
             public let telemetrySampleRate: Int64?
             public let telemetryUsageSampleRate: Int64?
+            public var textAndInputPrivacyLevel: String?
+            public let tnsTimeThresholdMs: Int64?
+            public var touchPrivacyLevel: String?
             public var traceContextInjection: TraceContextInjection?
             public let traceSampleRate: Int64?
             public var tracerApi: String?
             public var tracerApiVersion: String?
+            public var trackAnonymousUser: Bool?
             public var trackBackgroundEvents: Bool?
             public var trackCrossPlatformLongTasks: Bool?
             public var trackErrors: Bool?
+            public let trackFeatureFlagsForEvents: [TrackFeatureFlagsForEvents]?
             public var trackFlutterPerformance: Bool?
             public var trackFrustrations: Bool?
             public var trackInteractions: Bool?
@@ -1307,7 +1514,7 @@ public struct TelemetryConfigurationEvent: RUMDataModel
             public let trackSessionAcrossSubdomains: Bool?
             public var trackUserInteractions: Bool?
             public var trackViewsManually: Bool?
-            public let trackingConsent: String?
+            public let trackingConsent: TrackingConsent?
             public var unityVersion: String?
             public let useAllowedTracingOrigins: Bool?
             public let useAllowedTracingUrls: Bool?
@@ -1333,14 +1540,29 @@ public struct TelemetryConfigurationEvent: RUMDataModel
                 case string(value: String)
                 public func encode(to encoder: Encoder) throws
                 public init(from decoder: Decoder) throws
+            public struct Plugins: Codable
+                public let name: String
+                public var pluginsInfo: [String: Encodable]
             public enum SelectedTracingPropagators: String, Codable
                 case datadog = "datadog"
                 case b3 = "b3"
                 case b3multi = "b3multi"
                 case tracecontext = "tracecontext"
+            public enum SessionPersistence: String, Codable
+                case localStorage = "local-storage"
+                case cookie = "cookie"
             public enum TraceContextInjection: String, Codable
                 case all = "all"
                 case sampled = "sampled"
+            public enum TrackFeatureFlagsForEvents: String, Codable
+                case vital = "vital"
+                case resource = "resource"
+                case action = "action"
+                case longTask = "long_task"
+            public enum TrackingConsent: String, Codable
+                case granted = "granted"
+                case notGranted = "not-granted"
+                case pending = "pending"
             public enum ViewTrackingStrategy: String, Codable
                 case activityViewTrackingStrategy = "ActivityViewTrackingStrategy"
                 case fragmentViewTrackingStrategy = "FragmentViewTrackingStrategy"
@@ -1348,6 +1570,114 @@ public struct TelemetryConfigurationEvent: RUMDataModel
                 case navigationViewTrackingStrategy = "NavigationViewTrackingStrategy"
     public struct View: Codable
         public let id: String
+[?] extension TelemetryConfigurationEvent.Telemetry
+    public func encode(to encoder: Encoder) throws
+    public init(from decoder: Decoder) throws
+[?] extension TelemetryConfigurationEvent.Telemetry.Configuration.Plugins
+    public func encode(to encoder: Encoder) throws
+    public init(from decoder: Decoder) throws
+public struct TelemetryUsageEvent: RUMDataModel
+    public let dd: DD
+    public let action: Action?
+    public let application: Application?
+    public let date: Int64
+    public let effectiveSampleRate: Double?
+    public let experimentalFeatures: [String]?
+    public let service: String
+    public let session: Session?
+    public let source: Source
+    public var telemetry: Telemetry
+    public let type: String = "telemetry"
+    public let version: String
+    public let view: View?
+    public struct DD: Codable
+        public let formatVersion: Int64 = 2
+    public struct Action: Codable
+        public let id: String
+    public struct Application: Codable
+        public let id: String
+    public struct Session: Codable
+        public let id: String
+    public enum Source: String, Codable
+        case android = "android"
+        case ios = "ios"
+        case browser = "browser"
+        case flutter = "flutter"
+        case reactNative = "react-native"
+        case unity = "unity"
+        case kotlinMultiplatform = "kotlin-multiplatform"
+    public struct Telemetry: Codable
+        public let device: RUMTelemetryDevice?
+        public let os: RUMTelemetryOperatingSystem?
+        public let type: String = "usage"
+        public let usage: Usage
+        public var telemetryInfo: [String: Encodable]
+        public enum Usage: Codable
+            case telemetryCommonFeaturesUsage(value: TelemetryCommonFeaturesUsage)
+            case telemetryMobileFeaturesUsage(value: TelemetryMobileFeaturesUsage)
+            public func encode(to encoder: Encoder) throws
+            public init(from decoder: Decoder) throws
+            public enum TelemetryCommonFeaturesUsage: Codable
+                case setTrackingConsent(value: SetTrackingConsent)
+                case stopSession(value: StopSession)
+                case startView(value: StartView)
+                case setViewContext(value: SetViewContext)
+                case setViewContextProperty(value: SetViewContextProperty)
+                case setViewName(value: SetViewName)
+                case getViewContext(value: GetViewContext)
+                case addAction(value: AddAction)
+                case addError(value: AddError)
+                case setGlobalContext(value: SetGlobalContext)
+                case setUser(value: SetUser)
+                case setAccount(value: SetAccount)
+                case addFeatureFlagEvaluation(value: AddFeatureFlagEvaluation)
+                public func encode(to encoder: Encoder) throws
+                public init(from decoder: Decoder) throws
+                public struct SetTrackingConsent: Codable
+                    public let feature: String = "set-tracking-consent"
+                    public let trackingConsent: TrackingConsent
+                    public enum TrackingConsent: String, Codable
+                        case granted = "granted"
+                        case notGranted = "not-granted"
+                        case pending = "pending"
+                public struct StopSession: Codable
+                    public let feature: String = "stop-session"
+                public struct StartView: Codable
+                    public let feature: String = "start-view"
+                public struct SetViewContext: Codable
+                    public let feature: String = "set-view-context"
+                public struct SetViewContextProperty: Codable
+                    public let feature: String = "set-view-context-property"
+                public struct SetViewName: Codable
+                    public let feature: String = "set-view-name"
+                public struct GetViewContext: Codable
+                    public let feature: String = "get-view-context"
+                public struct AddAction: Codable
+                    public let feature: String = "add-action"
+                public struct AddError: Codable
+                    public let feature: String = "add-error"
+                public struct SetGlobalContext: Codable
+                    public let feature: String = "set-global-context"
+                public struct SetUser: Codable
+                    public let feature: String = "set-user"
+                public struct SetAccount: Codable
+                    public let feature: String = "set-account"
+                public struct AddFeatureFlagEvaluation: Codable
+                    public let feature: String = "add-feature-flag-evaluation"
+            public enum TelemetryMobileFeaturesUsage: Codable
+                case addViewLoadingTime(value: AddViewLoadingTime)
+                public func encode(to encoder: Encoder) throws
+                public init(from decoder: Decoder) throws
+                public struct AddViewLoadingTime: Codable
+                    public let feature: String = "addViewLoadingTime"
+                    public let noActiveView: Bool
+                    public let noView: Bool
+                    public let overwritten: Bool
+    public struct View: Codable
+        public let id: String
+[?] extension TelemetryUsageEvent.Telemetry
+    public func encode(to encoder: Encoder) throws
+    public init(from decoder: Decoder) throws
 public enum RUMSessionPrecondition: String, Codable
     case userAppLaunch = "user_app_launch"
     case inactivityTimeout = "inactivity_timeout"
@@ -1367,7 +1697,7 @@ public struct RUMConnectivity: Codable
         public let carrierName: String?
         public let technology: String?
     public enum EffectiveType: String, Codable
-        case slow2g = "slow_2g"
+        case slow2g = "slow-2g"
         case effectiveType2g = "2g"
         case effectiveType3g = "3g"
         case effectiveType4g = "4g"
@@ -1386,7 +1716,7 @@ public struct RUMConnectivity: Codable
         case notConnected = "not_connected"
         case maybe = "maybe"
 public struct RUMEventAttributes: Codable
-    public internal(set) var contextInfo: [String: Encodable]
+    public var contextInfo: [String: Encodable]
 [?] extension RUMEventAttributes
     public func encode(to encoder: Encoder) throws
     public init(from decoder: Decoder) throws
@@ -1418,10 +1748,11 @@ public struct RUMSyntheticsTest: Codable
     public let resultId: String
     public let testId: String
 public struct RUMUser: Codable
+    public let anonymousId: String?
     public let email: String?
     public let id: String?
     public let name: String?
-    public internal(set) var usrInfo: [String: Encodable]
+    public var usrInfo: [String: Encodable]
 [?] extension RUMUser
     public func encode(to encoder: Encoder) throws
     public init(from decoder: Decoder) throws
@@ -1440,6 +1771,14 @@ public enum RUMMethod: String, Codable
     case trace = "TRACE"
     case options = "OPTIONS"
     case connect = "CONNECT"
+public struct RUMTelemetryDevice: Codable
+    public let architecture: String?
+    public let brand: String?
+    public let model: String?
+public struct RUMTelemetryOperatingSystem: Codable
+    public let build: String?
+    public let name: String?
+    public let version: String?
 public extension SwiftUI.View
     func trackRUMTapAction(name: String,attributes: [String: Encodable] = [:],count: Int = 1,in core: DatadogCoreProtocol = CoreRegistry.default) -> some View
 public struct RUMAction
@@ -1495,9 +1834,12 @@ public enum RUM
         public var urlSessionTracking: URLSessionTracking?
         public var trackFrustrations: Bool
         public var trackBackgroundEvents: Bool
+        public var trackWatchdogTerminations: Bool
         public var longTaskThreshold: TimeInterval?
         public var appHangThreshold: TimeInterval?
         public var vitalsUpdateFrequency: VitalsFrequency?
+        public var networkSettledResourcePredicate: NetworkSettledResourcePredicate
+        public var nextViewActionPredicate: NextViewActionPredicate?
         public var viewEventMapper: RUM.ViewEventMapper?
         public var resourceEventMapper: RUM.ResourceEventMapper?
         public var actionEventMapper: RUM.ActionEventMapper?
@@ -1505,7 +1847,8 @@ public enum RUM
         public var longTaskEventMapper: RUM.LongTaskEventMapper?
         public var onSessionStart: RUM.SessionListener?
         public var customEndpoint: URL?
-        public var telemetrySampleRate: Float
+        public var trackAnonymousUser: Bool
+        public var telemetrySampleRate: SampleRate
         public struct URLSessionTracking
             public var firstPartyHostsTracing: FirstPartyHostsTracing?
             public var resourceAttributesProvider: RUM.ResourceAttributesProvider?
@@ -1519,9 +1862,30 @@ public enum RUM
         case traceWithHeaders(hostsWithHeaders: [String: Set<TracingHeaderType>],sampleRate: Float = 20,traceControlInjection: TraceContextInjection = .all)
     public init(firstPartyHostsTracing: RUM.Configuration.URLSessionTracking.FirstPartyHostsTracing? = nil,resourceAttributesProvider: RUM.ResourceAttributesProvider? = nil)
 [?] extension RUM.Configuration
-    public init(applicationID: String,sessionSampleRate: Float = 100,uiKitViewsPredicate: UIKitRUMViewsPredicate? = nil,uiKitActionsPredicate: UIKitRUMActionsPredicate? = nil,urlSessionTracking: URLSessionTracking? = nil,trackFrustrations: Bool = true,trackBackgroundEvents: Bool = false,longTaskThreshold: TimeInterval? = 0.1,appHangThreshold: TimeInterval? = nil,vitalsUpdateFrequency: VitalsFrequency? = .average,viewEventMapper: RUM.ViewEventMapper? = nil,resourceEventMapper: RUM.ResourceEventMapper? = nil,actionEventMapper: RUM.ActionEventMapper? = nil,errorEventMapper: RUM.ErrorEventMapper? = nil,longTaskEventMapper: RUM.LongTaskEventMapper? = nil,onSessionStart: RUM.SessionListener? = nil,customEndpoint: URL? = nil,telemetrySampleRate: Float = 20)
+    public init(applicationID: String,sessionSampleRate: SampleRate = .maxSampleRate,uiKitViewsPredicate: UIKitRUMViewsPredicate? = nil,uiKitActionsPredicate: UIKitRUMActionsPredicate? = nil,urlSessionTracking: URLSessionTracking? = nil,trackFrustrations: Bool = true,trackBackgroundEvents: Bool = false,longTaskThreshold: TimeInterval? = 0.1,appHangThreshold: TimeInterval? = nil,trackWatchdogTerminations: Bool = false,vitalsUpdateFrequency: VitalsFrequency? = .average,networkSettledResourcePredicate: NetworkSettledResourcePredicate = TimeBasedTNSResourcePredicate(),nextViewActionPredicate: NextViewActionPredicate? = TimeBasedINVActionPredicate(),viewEventMapper: RUM.ViewEventMapper? = nil,resourceEventMapper: RUM.ResourceEventMapper? = nil,actionEventMapper: RUM.ActionEventMapper? = nil,errorEventMapper: RUM.ErrorEventMapper? = nil,longTaskEventMapper: RUM.LongTaskEventMapper? = nil,onSessionStart: RUM.SessionListener? = nil,customEndpoint: URL? = nil,trackAnonymousUser: Bool = true,telemetrySampleRate: SampleRate = 20)
 [?] extension InternalExtension where ExtendedType == RUM.Configuration
     public var configurationTelemetrySampleRate: Float
+public struct TNSResourceParams
+    public let url: String
+    public let timeSinceViewStart: TimeInterval
+    public let viewName: String
+public protocol NetworkSettledResourcePredicate
+    func isInitialResource(from resourceParams: TNSResourceParams) -> Bool
+public struct TimeBasedTNSResourcePredicate: NetworkSettledResourcePredicate
+    public static let defaultThreshold: TimeInterval = 0.1
+    public init(threshold: TimeInterval = TimeBasedTNSResourcePredicate.defaultThreshold)
+    public func isInitialResource(from resourceParams: TNSResourceParams) -> Bool
+public struct INVActionParams
+    public let type: RUMActionType
+    public let name: String
+    public let timeToNextView: TimeInterval
+    public let nextViewName: String
+public protocol NextViewActionPredicate
+    func isLastAction(from actionParams: INVActionParams) -> Bool
+public struct TimeBasedINVActionPredicate: NextViewActionPredicate
+    public static let defaultMaxTimeToNextView: TimeInterval = 3
+    public init(maxTimeToNextView: TimeInterval = TimeBasedINVActionPredicate.defaultMaxTimeToNextView)
+    public func isLastAction(from actionParams: INVActionParams) -> Bool
 public class RUMMonitor
     public static func shared(in core: DatadogCoreProtocol = CoreRegistry.default) -> RUMMonitorProtocol
 public extension RUMMonitorProtocol
@@ -1529,7 +1893,7 @@ public extension RUMMonitorProtocol
     func stopView(viewController: UIViewController,attributes: [AttributeKey: AttributeValue] = [:])
     func startView(key: String,name: String? = nil,attributes: [AttributeKey: AttributeValue] = [:])
     func stopView(key: String,attributes: [AttributeKey: AttributeValue] = [:])
-    func addError(message: String,type: String? = nil,stack: String? = nil,source: RUMErrorSource = .custom,attributes: [AttributeKey: AttributeValue] = [:],file: StaticString? = #filePath,line: UInt? = #line)
+    func addError(message: String,type: String? = nil,stack: String? = nil,source: RUMErrorSource = .custom,attributes: [AttributeKey: AttributeValue] = [:],file: StaticString? = #fileID,line: UInt? = #line)
     func addError(error: Error,source: RUMErrorSource = .custom,attributes: [AttributeKey: AttributeValue] = [:])
     func startResource(resourceKey: String,request: URLRequest,attributes: [AttributeKey: AttributeValue] = [:])
     func startResource(resourceKey: String,url: URL,attributes: [AttributeKey: AttributeValue] = [:])
@@ -1547,6 +1911,7 @@ public extension RUMMonitorProtocol
 public struct DatadogInternalInterface
     public func addLongTask(at time: Date,duration: TimeInterval,attributes: [AttributeKey: AttributeValue] = [:])
     public func updatePerformanceMetric(at time: Date,metric: PerformanceMetric,value: Double,attributes: [AttributeKey: AttributeValue] = [:])
+    public func setInternalViewAttribute(at time: Date,key: AttributeKey,value: AttributeValue)
     public func addResourceMetrics(at time: Date,resourceKey: String,fetch: (start: Date, end: Date),redirection: (start: Date, end: Date)?,dns: (start: Date, end: Date)?,connect: (start: Date, end: Date)?,ssl: (start: Date, end: Date)?,firstByte: (start: Date, end: Date)?,download: (start: Date, end: Date)?,responseSize: Int64?,attributes: [AttributeKey: AttributeValue] = [:])
 public typealias RUMResourceType = RUMResourceEvent.Resource.ResourceType
 public enum RUMActionType
@@ -1563,13 +1928,16 @@ public enum RUMErrorSource
     case custom
 public protocol RUMMonitorProtocol: AnyObject
     func addAttribute(forKey key: AttributeKey, value: AttributeValue)
+    func addAttributes(_ attributes: [AttributeKey: AttributeValue])
     func removeAttribute(forKey key: AttributeKey)
+    func removeAttributes(forKeys keys: [AttributeKey])
     func currentSessionID(completion: @escaping (String?) -> Void)
     func stopSession()
     func startView(viewController: UIViewController,name: String?,attributes: [AttributeKey: AttributeValue])
     func stopView(viewController: UIViewController,attributes: [AttributeKey: AttributeValue])
     func startView(key: String,name: String?,attributes: [AttributeKey: AttributeValue])
     func stopView(key: String,attributes: [AttributeKey: AttributeValue])
+    func addViewLoadingTime(overwrite: Bool)
     func addTiming(name: String)
     func addError(message: String,type: String?,stack: String?,source: RUMErrorSource,attributes: [AttributeKey: AttributeValue],file: StaticString?,line: UInt?)
     func addError(error: Error,source: RUMErrorSource,attributes: [AttributeKey: AttributeValue])
@@ -1598,7 +1966,12 @@ public enum PerformanceMetric
 
 public final class CrashReporting
     public static func enable(in core: DatadogCoreProtocol = CoreRegistry.default)
+    public static func enable(with plugin: CrashReportingPlugin, in core: DatadogCoreProtocol = CoreRegistry.default)
 public static func enable()
+public protocol CrashReportingPlugin: AnyObject
+    func readPendingCrashReport(completion: @escaping (DDCrashReport?) -> Bool)
+    func inject(context: Data)
+    var backtraceReporter: BacktraceReporting?
 
 
 # ----------------------------------
@@ -1606,30 +1979,15 @@ public static func enable()
 # ----------------------------------
 
 public final class objc_WebViewTracking: NSObject
-    public final class SessionReplayConfiguration: NSObject
-        public enum PrivacyLevel: Int
-            case allow
-            case mask
-            case maskUserInput
-        @objc public var privacyLevel: PrivacyLevel
-        override public init()
-        public init(privacyLevel: PrivacyLevel)
-    public static func enable(webView: WKWebView,hosts: Set<String> = [],logsSampleRate: Float = 100,with configuration: SessionReplayConfiguration? = nil)
+    public static func enable(webView: WKWebView,hosts: Set<String> = [],logsSampleRate: SampleRate = .maxSampleRate)
     public static func disable(webView: WKWebView)
 public enum WebViewTracking
-    public struct SessionReplayConfiguration
-        public enum PrivacyLevel: String
-            case allow
-            case mask
-            case maskUserInput = "mask_user_input"
-        public var privacyLevel: PrivacyLevel
-        public init(privacyLevel: PrivacyLevel = .mask)
-    public static func enable(webView: WKWebView,hosts: Set<String> = [],logsSampleRate: Float = 100,sessionReplayConfiguration: SessionReplayConfiguration? = nil,in core: DatadogCoreProtocol = CoreRegistry.default)
+    public static func enable(webView: WKWebView,hosts: Set<String> = [],logsSampleRate: SampleRate = .maxSampleRate,in core: DatadogCoreProtocol = CoreRegistry.default)
     public static func disable(webView: WKWebView)
 [?] extension InternalExtension where ExtendedType == WebViewTracking
     public class AbstractMessageEmitter
         public func send(body: Any, slotId: String? = nil)
-    public static func messageEmitter(in core: DatadogCoreProtocol,logsSampleRate: Float = 100) -> AbstractMessageEmitter
+    public static func messageEmitter(in core: DatadogCoreProtocol,logsSampleRate: SampleRate = .maxSampleRate) -> AbstractMessageEmitter
 
 
 # ----------------------------------
@@ -1658,6 +2016,7 @@ public struct SRSegment: SRDataModel
         case ios = "ios"
         case flutter = "flutter"
         case reactNative = "react-native"
+        case kotlinMultiplatform = "kotlin-multiplatform"
     public struct View: Codable
         public let id: String
 public struct SRShapeBorder: Codable, Hashable
@@ -1927,11 +2286,12 @@ public typealias WireframeID = NodeID
 public class SessionReplayWireframesBuilder
     public struct FontOverride
         public init(size: CGFloat?)
-    public func createShapeWireframe(id: WireframeID,frame: CGRect,clip: SRContentClip? = nil,borderColor: CGColor? = nil,borderWidth: CGFloat? = nil,backgroundColor: CGColor? = nil,cornerRadius: CGFloat? = nil,opacity: CGFloat? = nil) -> SRWireframe
-    public func createImageWireframe(resourceId: String,id: WireframeID,frame: CGRect,mimeType: String = "png",clip: SRContentClip? = nil,borderColor: CGColor? = nil,borderWidth: CGFloat? = nil,backgroundColor: CGColor? = nil,cornerRadius: CGFloat? = nil,opacity: CGFloat? = nil) -> SRWireframe
-    public func createTextWireframe(id: WireframeID,frame: CGRect,text: String,textFrame: CGRect? = nil,textAlignment: SRTextPosition.Alignment? = nil,clip: SRContentClip? = nil,textColor: CGColor? = nil,font: UIFont? = nil,fontOverride: FontOverride? = nil,fontScalingEnabled: Bool = false,borderColor: CGColor? = nil,borderWidth: CGFloat? = nil,backgroundColor: CGColor? = nil,cornerRadius: CGFloat? = nil,opacity: CGFloat? = nil) -> SRWireframe
-    public func createPlaceholderWireframe(id: Int64,frame: CGRect,label: String,clip: SRContentClip? = nil) -> SRWireframe
-    public func visibleWebViewWireframe(id: Int,frame: CGRect,clip: SRContentClip? = nil,borderColor: CGColor? = nil,borderWidth: CGFloat? = nil,backgroundColor: CGColor? = nil,cornerRadius: CGFloat? = nil,opacity: CGFloat? = nil) -> SRWireframe
+    public func createShapeWireframe(id: WireframeID,frame: CGRect,clip: CGRect,borderColor: CGColor? = nil,borderWidth: CGFloat? = nil,backgroundColor: CGColor? = nil,cornerRadius: CGFloat? = nil,opacity: CGFloat? = nil) -> SRWireframe
+    public func createImageWireframe(id: WireframeID,resource: SessionReplayResource,frame: CGRect,clip: CGRect,mimeType: String = "png",borderColor: CGColor? = nil,borderWidth: CGFloat? = nil,backgroundColor: CGColor? = nil,cornerRadius: CGFloat? = nil,opacity: CGFloat? = nil) -> SRWireframe
+    public func createTextWireframe(id: WireframeID,frame: CGRect,clip: CGRect,text: String,textFrame: CGRect? = nil,textAlignment: SRTextPosition.Alignment? = nil,textColor: CGColor? = nil,font: UIFont? = nil,fontOverride: FontOverride? = nil,fontScalingEnabled: Bool = false,borderColor: CGColor? = nil,borderWidth: CGFloat? = nil,backgroundColor: CGColor? = nil,cornerRadius: CGFloat? = nil,opacity: CGFloat? = nil) -> SRWireframe
+    public func createPlaceholderWireframe(id: Int64,frame: CGRect,clip: CGRect,label: String) -> SRWireframe
+    public func visibleWebViewWireframe(id: Int,frame: CGRect,clip: CGRect,borderColor: CGColor? = nil,borderWidth: CGFloat? = nil,backgroundColor: CGColor? = nil,cornerRadius: CGFloat? = nil,opacity: CGFloat? = nil) -> SRWireframe
+    public func hiddenWebViewWireframes() -> [SRWireframe]
 [?] extension SRContentClip
     public static func create(bottom: Int64?,left: Int64?,right: Int64?,top: Int64?) -> SRContentClip
 [?] extension SRImageWireframe
@@ -1939,16 +2299,19 @@ public class SessionReplayWireframesBuilder
     public func hash(into hasher: inout Hasher)
 public protocol SessionReplayTextObfuscating
     func mask(text: String) -> String
-public typealias SessionReplayPrivacyLevel = SessionReplay.Configuration.PrivacyLevel
-public extension SessionReplay.Configuration.PrivacyLevel
+public extension TextAndInputPrivacyLevel
     var sensitiveTextObfuscator: SessionReplayTextObfuscating
     var inputAndOptionTextObfuscator: SessionReplayTextObfuscating
     var staticTextObfuscator: SessionReplayTextObfuscating
     var hintTextObfuscator: SessionReplayTextObfuscating
 public class Recorder: Recording
-    public struct Context: Equatable
-        public let privacy: SessionReplayPrivacyLevel
+    public struct Context
+        public let textAndInputPrivacy: TextAndInputPrivacyLevel
+        public let imagePrivacy: ImagePrivacyLevel
+        public let touchPrivacy: TouchPrivacyLevel
     deinit
+public extension Int64
+    static func positiveRandom<T>(using generator: inout T) -> Int64 where T: RandomNumberGenerator
 public typealias NodeID = Int64
 public final class NodeIDGenerator
     public func nodeID(view: UIView, nodeRecorder: SessionReplayNodeRecorder) -> NodeID
@@ -1969,17 +2332,17 @@ public protocol SessionReplayResource
     func calculateIdentifier() -> String
     func calculateData() -> Data
 public struct SessionReplayViewAttributes: Equatable
-    public let frame: CGRect
-    public let backgroundColor: CGColor?
-    public let layerBorderColor: CGColor?
-    public let layerBorderWidth: CGFloat
-    public let layerCornerRadius: CGFloat
-    public let alpha: CGFloat
+    public internal(set) var frame: CGRect
+    public internal(set) var clip: CGRect
+    public internal(set) var backgroundColor: CGColor?
+    public internal(set) var layerBorderColor: CGColor?
+    public internal(set) var layerBorderWidth: CGFloat
+    public internal(set) var layerCornerRadius: CGFloat
+    public internal(set) var alpha: CGFloat
 public protocol SessionReplayNodeSemantics
     static var importance: Int
     var subtreeStrategy: SessionReplayNodeSubtreeStrategy
     var nodes: [SessionReplayNode]
-    var resources: [SessionReplayResource]
 public enum SessionReplayNodeSubtreeStrategy
     case record
     case ignore
@@ -1987,35 +2350,95 @@ public struct SessionReplayInvisibleElement: SessionReplayNodeSemantics
     public static let importance: Int = 0
     public let subtreeStrategy: SessionReplayNodeSubtreeStrategy
     public let nodes: [SessionReplayNode] = []
-    public let resources: [SessionReplayResource] = []
     public static let constant = SessionReplayInvisibleElement()
 public struct SessionReplaySpecificElement: SessionReplayNodeSemantics
     public static let importance: Int = .max
     public let subtreeStrategy: SessionReplayNodeSubtreeStrategy
     public let nodes: [SessionReplayNode]
-    public let resources: [SessionReplayResource]
-    public init(subtreeStrategy: SessionReplayNodeSubtreeStrategy,nodes: [SessionReplayNode],resources: [SessionReplayResource] = [])
-public final class DDSessionReplay: NSObject
-    public static func enable(with configuration: DDSessionReplayConfiguration)
-public final class DDSessionReplayConfiguration: NSObject
+    public init(subtreeStrategy: SessionReplayNodeSubtreeStrategy,nodes: [SessionReplayNode])
+public final class objc_SessionReplay: NSObject
+    public static func enable(with configuration: objc_SessionReplayConfiguration)
+    public static func startRecording()
+    public static func stopRecording()
+public final class objc_SessionReplayConfiguration: NSObject
     @objc public var replaySampleRate: Float
-    @objc public var defaultPrivacyLevel: DDSessionReplayConfigurationPrivacyLevel
+    @objc public var defaultPrivacyLevel: objc_SessionReplayConfigurationPrivacyLevel
+    @objc public var textAndInputPrivacyLevel: objc_TextAndInputPrivacyLevel
+    @objc public var imagePrivacyLevel: objc_ImagePrivacyLevel
+    @objc public var touchPrivacyLevel: objc_TouchPrivacyLevel
+    @objc public var startRecordingImmediately: Bool
     @objc public var customEndpoint: URL?
+    @objc public var featureFlags: [String: Bool]
+    public required init(replaySampleRate: Float,textAndInputPrivacyLevel: objc_TextAndInputPrivacyLevel,imagePrivacyLevel: objc_ImagePrivacyLevel,touchPrivacyLevel: objc_TouchPrivacyLevel,featureFlags: [String: Bool]?)
+    public convenience init(replaySampleRate: Float,textAndInputPrivacyLevel: objc_TextAndInputPrivacyLevel,imagePrivacyLevel: objc_ImagePrivacyLevel,touchPrivacyLevel: objc_TouchPrivacyLevel)
     public required init(replaySampleRate: Float)
-public enum DDSessionReplayConfigurationPrivacyLevel: Int
+public enum objc_SessionReplayConfigurationPrivacyLevel: Int
     case allow
     case mask
     case maskUserInput
+public enum objc_TextAndInputPrivacyLevel: Int
+    case maskSensitiveInputs
+    case maskAllInputs
+    case maskAll
+public enum objc_ImagePrivacyLevel: Int
+    case maskNonBundledOnly
+    case maskAll
+    case maskNone
+public enum objc_TouchPrivacyLevel: Int
+    case show
+    case hide
 public enum SessionReplay
-    public static func enable(with configuration: SessionReplay.Configuration, in core: DatadogCoreProtocol = CoreRegistry.default)
+    public static func enable(with configuration: SessionReplay.Configuration,in core: DatadogCoreProtocol = CoreRegistry.default)
+    public static func startRecording(in core: DatadogCoreProtocol = CoreRegistry.default)
+    public static func stopRecording(in core: DatadogCoreProtocol = CoreRegistry.default)
 [?] extension SessionReplay
     public struct Configuration
         public var replaySampleRate: Float
-        public var defaultPrivacyLevel: PrivacyLevel
-        public enum PrivacyLevel: String
-            case allow
-            case mask
-            case maskUserInput = "mask_user_input"
+        public var defaultPrivacyLevel: SessionReplayPrivacyLevel = .mask
+        public var textAndInputPrivacyLevel: TextAndInputPrivacyLevel
+        public var imagePrivacyLevel: ImagePrivacyLevel
+        public var touchPrivacyLevel: TouchPrivacyLevel
+        public var startRecordingImmediately: Bool
         public var customEndpoint: URL?
-        public init(replaySampleRate: Float,defaultPrivacyLevel: PrivacyLevel = .mask,customEndpoint: URL? = nil)
+        public var featureFlags: FeatureFlags
+        public init(replaySampleRate: SampleRate = .maxSampleRate,textAndInputPrivacyLevel: TextAndInputPrivacyLevel,imagePrivacyLevel: ImagePrivacyLevel,touchPrivacyLevel: TouchPrivacyLevel,startRecordingImmediately: Bool = true,customEndpoint: URL? = nil,featureFlags: FeatureFlags = .defaults)
+        public init(replaySampleRate: SampleRate = .maxSampleRate,defaultPrivacyLevel: SessionReplayPrivacyLevel = .mask,startRecordingImmediately: Bool = true,customEndpoint: URL? = nil)
         public mutating func setAdditionalNodeRecorders(_ additionalNodeRecorders: [SessionReplayNodeRecorder])
+[?] extension SessionReplay.Configuration
+    public typealias FeatureFlags = [FeatureFlag: Bool]
+    public enum FeatureFlag: String
+        case swiftui
+[?] extension SessionReplay.Configuration.FeatureFlags
+    public static var defaults: Self
+    public subscript(flag: Key) -> Bool
+public enum objc_TextAndInputPrivacyLevelOverride: Int
+    case none
+    case maskSensitiveInputs
+    case maskAllInputs
+    case maskAll
+public enum objc_ImagePrivacyLevelOverride: Int
+    case none
+    case maskNone
+    case maskNonBundledOnly
+    case maskAll
+public enum objc_TouchPrivacyLevelOverride: Int
+    case none
+    case show
+    case hide
+[?] extension DatadogExtension where ExtendedType: UIView
+    public var sessionReplayPrivacyOverrides: SessionReplayPrivacyOverrides
+public final class SessionReplayPrivacyOverrides
+    public var textAndInputPrivacy: TextAndInputPrivacyLevel?
+    public var imagePrivacy: ImagePrivacyLevel?
+    public var touchPrivacy: TouchPrivacyLevel?
+    public var hide: Bool?
+[?] extension PrivacyOverrides: Equatable
+    public static func == (lhs: SessionReplayPrivacyOverrides, rhs: SessionReplayPrivacyOverrides) -> Bool
+public extension UIView
+    @objc var ddSessionReplayPrivacyOverrides: objc_SessionReplayPrivacyOverrides
+public final class objc_SessionReplayPrivacyOverrides: NSObject
+    public init(view: UIView)
+    @objc public var textAndInputPrivacy: objc_TextAndInputPrivacyLevelOverride
+    @objc public var imagePrivacy: objc_ImagePrivacyLevelOverride
+    @objc public var touchPrivacy: objc_TouchPrivacyLevelOverride
+    @objc public var hide: NSNumber?

@@ -66,13 +66,19 @@ public class DDDatadog: NSObject {
     }
 
     @objc
+    public static func setUserInfo(userId: String, name: String? = nil, email: String? = nil, extraInfo: [String: Any] = [:]) {
+        Datadog.setUserInfo(id: userId, name: name, email: email, extraInfo: extraInfo.dd.swiftAttributes)
+    }
+
+    @objc
+    @available(*, deprecated, message: "UserInfo id property is now mandatory.")
     public static func setUserInfo(id: String? = nil, name: String? = nil, email: String? = nil, extraInfo: [String: Any] = [:]) {
-        Datadog.setUserInfo(id: id, name: name, email: email, extraInfo: castAttributesToSwift(extraInfo))
+        Datadog.setUserInfo(id: id, name: name, email: email, extraInfo: extraInfo.dd.swiftAttributes)
     }
 
     @objc
     public static func addUserExtraInfo(_ extraInfo: [String: Any]) {
-        Datadog.addUserExtraInfo(castAttributesToSwift(extraInfo))
+        Datadog.addUserExtraInfo(extraInfo.dd.swiftAttributes)
     }
 
     @objc

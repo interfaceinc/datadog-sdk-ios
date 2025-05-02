@@ -5,9 +5,9 @@
  */
 
 import XCTest
-import TestUtilities
 import DatadogInternal
 @testable import DatadogRUM
+@testable import TestUtilities
 
 class RUMSessionScopeTests: XCTestCase {
     let context: DatadogContext = .mockAny()
@@ -132,7 +132,7 @@ class RUMSessionScopeTests: XCTestCase {
         // Given
         let dateProvider = RelativeDateProvider()
         let ttl: TimeInterval = .mockRandom(min: 2, max: 10)
-        let viewCache = ViewCache(ttl: ttl)
+        let viewCache = ViewCache(dateProvider: SystemDateProvider(), ttl: ttl)
 
         let scope: RUMSessionScope = .mockWith(
             parent: parent,
@@ -531,7 +531,7 @@ class RUMSessionScopeTests: XCTestCase {
         let view = try XCTUnwrap(scope.viewScopes.first)
 
         // When
-        let command = RUMStopSessionCommand(time: Date())
+        let command: RUMStopSessionCommand = .mockWith(time: Date())
         let keep = scope.process(command: command, context: context, writer: writer)
 
         // Then
@@ -588,7 +588,7 @@ class RUMSessionScopeTests: XCTestCase {
         _ = scope.process(command: RUMStopSessionCommand.mockWith(time: Date()), context: context, writer: writer)
 
         // When
-        let command = RUMApplicationStartCommand(time: Date(), attributes: [:])
+        let command = RUMApplicationStartCommand(time: Date(), globalAttributes: [:], attributes: [:])
         let result = scope.process(command: command, context: context, writer: writer)
 
         // Then
@@ -598,7 +598,7 @@ class RUMSessionScopeTests: XCTestCase {
 
     // MARK: - Usage
 
-    func testGivenSessionWithNoActiveScope_whenReceivingRUMCommandOtherThanKeepSessionAliveCommand_itLogsWarning() throws {
+    func testGivenSessionWithNoActiveScope_whenReceivingRUMCommand_itLogsWarning() throws {
         func recordWarningOnReceiving(command: RUMCommand) -> String? {
             // Given
             let scope: RUMSessionScope = .mockWith(
@@ -623,14 +623,41 @@ class RUMSessionScopeTests: XCTestCase {
         XCTAssertEqual(
             randomCommandLog,
             """
-            \(String(describing: randomCommand)) was detected, but no view is active. To track views automatically, try calling the
-            DatadogConfiguration.Builder.trackUIKitRUMViews() method. You can also track views manually using
-            the RumMonitor.startView() and RumMonitor.stopView() methods.
+            \(String(describing: randomCommand)) was detected, but no view is active. To track views automatically, configure
+            `RUM.Configuration.uiKitViewsPredicate` or use `.trackRUMView()` modifier in SwiftUI. You can also track views manually
+            with `RUMMonitor.shared().startView()` and `RUMMonitor.shared().stopView()`.
             """
         )
+    }
 
-        let keepAliveCommand = RUMKeepSessionAliveCommand(time: Date(), attributes: [:])
-        let keepAliveLog = recordWarningOnReceiving(command: keepAliveCommand)
-        XCTAssertNil(keepAliveLog, "It shouldn't log warning when receiving `RUMKeepSessionAliveCommand`")
+    func testGivenSessionWithNoActiveScope_whenReceivingSilentCommand_itDoesNotLogWarning() throws {
+        func recordWarningOnReceiving(command: RUMCommand) -> String? {
+            // Given
+            let scope: RUMSessionScope = .mockWith(
+                parent: parent,
+                startTime: Date()
+            )
+            XCTAssertEqual(scope.viewScopes.count, 0)
+
+            let dd = DD.mockWith(logger: CoreLoggerMock())
+            defer { dd.reset() }
+
+            // When
+            _ = scope.process(command: command, context: context, writer: writer)
+
+            // Then
+            XCTAssertEqual(scope.viewScopes.count, 0)
+            return dd.logger.warnLog?.message
+        }
+
+        let silentCommands: [RUMCommand] = [
+            RUMKeepSessionAliveCommand(time: Date(), attributes: [:]),
+            RUMUpdatePerformanceMetric(metric: .flutterBuildTime, value: 1.0, time: Date(), attributes: [:])
+        ]
+
+        for command in silentCommands {
+            let log = recordWarningOnReceiving(command: command)
+            XCTAssertNil(log, "It shouldn't log warning when receiving silent command: \(command)")
+        }
     }
 }

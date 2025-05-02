@@ -64,26 +64,12 @@ internal typealias RUMErrorSourceType = RUMErrorEvent.Error.SourceType
 
 internal extension RUMErrorSourceType {
     static func extract(from attributes: inout [AttributeKey: AttributeValue]) -> RUMErrorSourceType? {
-        return (attributes.removeValue(forKey: CrossPlatformAttributes.errorSourceType))
-            .flatMap({
-                $0.decoded()
-            })
+        return attributes
+            .removeValue(forKey: CrossPlatformAttributes.errorSourceType)?
+            .dd.decode()
             .flatMap {
-                return RUMErrorEvent.Error.SourceType(rawValue: $0)
+                RUMErrorEvent.Error.SourceType(rawValue: $0)
             }
-    }
-}
-
-internal extension AttributeValue {
-    func decoded<T>() -> T? {
-        switch self {
-        case let codable as AnyCodable:
-            return codable.value as? T
-        case let val as T:
-            return val
-        default:
-            return nil
-        }
     }
 }
 
@@ -119,11 +105,7 @@ internal class Monitor: RUMCommandSubscriber {
     private(set) var debugging: RUMDebugging? = nil
 
     @ReadWriteLock
-    private var attributes: [AttributeKey: AttributeValue] = [:] {
-        didSet {
-            fatalErrorContext.globalAttributes = attributes
-        }
-    }
+    private var attributes: [AttributeKey: AttributeValue] = [:]
 
     private let fatalErrorContext: FatalErrorContextNotifying
 
@@ -138,6 +120,8 @@ internal class Monitor: RUMCommandSubscriber {
     }
 
     func process(command: RUMCommand) {
+        var command = command
+        command.globalAttributes = attributes
         // process command in event context
         featureScope.eventWriteContext { [weak self] context, writer in
             guard let self = self else {
@@ -191,17 +175,16 @@ internal class Monitor: RUMCommandSubscriber {
     func transform(command: RUMCommand) -> RUMCommand {
         var mutableCommand = command
 
-        var combinedUserAttributes = attributes
-        combinedUserAttributes.merge(rumCommandAttributes: command.attributes)
-
-        if let customTimestampInMiliseconds = combinedUserAttributes.removeValue(forKey: CrossPlatformAttributes.timestampInMilliseconds) as? Int64 {
-            let customTimeInterval = TimeInterval(fromMilliseconds: customTimestampInMiliseconds)
+        if let customTimestampInMilliseconds: Int64 = mutableCommand.attributes.removeValue(forKey: CrossPlatformAttributes.timestampInMilliseconds)?.dd.decode() {
+            let customTimeInterval = TimeInterval(fromMilliseconds: customTimestampInMilliseconds)
             mutableCommand.time = Date(timeIntervalSince1970: customTimeInterval)
         }
 
-        mutableCommand.attributes = combinedUserAttributes
-
         return mutableCommand
+    }
+
+    private func didUpdateAttributes() {
+        fatalErrorContext.globalAttributes = attributes
     }
 }
 
@@ -211,10 +194,24 @@ extension Monitor: RUMMonitorProtocol {
 
     func addAttribute(forKey key: AttributeKey, value: AttributeValue) {
         attributes[key] = value
+        self.didUpdateAttributes()
+    }
+
+    func addAttributes(_ attributes: [AttributeKey: AttributeValue]) {
+        self.attributes.merge(attributes) { $1 }
+        self.didUpdateAttributes()
     }
 
     func removeAttribute(forKey key: AttributeKey) {
         attributes[key] = nil
+        self.didUpdateAttributes()
+    }
+
+    func removeAttributes(forKeys keys: [AttributeKey]) {
+        _attributes.mutate { attributes in
+            keys.forEach { key in attributes.removeValue(forKey: key) }
+        }
+        self.didUpdateAttributes()
     }
 
     // MARK: - session
@@ -250,7 +247,8 @@ extension Monitor: RUMMonitorProtocol {
                 identity: ViewIdentifier(viewController),
                 name: name ?? viewController.canonicalClassName,
                 path: viewController.canonicalClassName,
-                attributes: attributes
+                attributes: attributes,
+                instrumentationType: .manual
             )
         )
     }
@@ -272,7 +270,8 @@ extension Monitor: RUMMonitorProtocol {
                 identity: ViewIdentifier(key),
                 name: name ?? key,
                 path: key,
-                attributes: attributes
+                attributes: attributes,
+                instrumentationType: .manual
             )
         )
     }
@@ -283,6 +282,16 @@ extension Monitor: RUMMonitorProtocol {
                 time: dateProvider.now,
                 attributes: attributes,
                 identity: ViewIdentifier(key)
+            )
+        )
+    }
+
+    func addViewLoadingTime(overwrite: Bool) {
+        process(
+            command: RUMAddViewLoadingTime(
+                time: dateProvider.now,
+                attributes: [:],
+                overwrite: overwrite
             )
         )
     }
@@ -458,6 +467,7 @@ extension Monitor: RUMMonitorProtocol {
             command: RUMAddUserActionCommand(
                 time: dateProvider.now,
                 attributes: attributes,
+                instrumentation: .manual,
                 actionType: type,
                 name: name
             )
@@ -469,6 +479,7 @@ extension Monitor: RUMMonitorProtocol {
             command: RUMStartUserActionCommand(
                 time: dateProvider.now,
                 attributes: attributes,
+                instrumentation: .manual,
                 actionType: type,
                 name: name
             )

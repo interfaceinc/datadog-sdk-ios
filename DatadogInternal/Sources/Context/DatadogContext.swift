@@ -69,7 +69,7 @@ public struct DatadogContext {
     public let sdkInitDate: Date
 
     /// Current device information.
-    public let device: DeviceInfo
+    public var device: DeviceInfo
 
     /// Current user information.
     public var userInfo: UserInfo?
@@ -77,10 +77,8 @@ public struct DatadogContext {
     /// The user's consent to data collection
     public var trackingConsent: TrackingConsent = .pending
 
-    /// Application launch time.
-    ///
-    /// Can be `nil` if the launch could not yet been evaluated.
-    public var launchTime: LaunchTime?
+    /// Application launch time info.
+    public var launchTime: LaunchTime
 
     /// Provides the history of app foreground / background states.
     public var applicationStateHistory: AppStateHistory
@@ -137,7 +135,7 @@ public struct DatadogContext {
         nativeSourceOverride: String? = nil,
         userInfo: UserInfo? = nil,
         trackingConsent: TrackingConsent = .pending,
-        launchTime: LaunchTime? = nil,
+        launchTime: LaunchTime,
         applicationStateHistory: AppStateHistory,
         networkConnectionInfo: NetworkConnectionInfo? = nil,
         carrierInfo: CarrierInfo? = nil,

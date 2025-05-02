@@ -8,6 +8,7 @@ import Foundation
 import UIKit
 import DatadogInternal
 
+// MARK: - RUMViewsHandler
 internal final class RUMViewsHandler {
     /// RUM representation of a View.
     private struct View {
@@ -25,14 +26,25 @@ internal final class RUMViewsHandler {
 
         /// Custom attributes to attach to the View.
         let attributes: [AttributeKey: AttributeValue]
+
+        /// The type of instrumentation that started this view.
+        let instrumentationType: SessionEndedMetric.ViewInstrumentationType
     }
 
     /// The current date provider.
     private let dateProvider: DateProvider
 
-    /// `UIKit` view predicate. `nil`, if `UIKit` auto-instrumentations is
+    /// `UIKit` view predicate. `nil` if `UIKit` auto-instrumentations is
     /// disabled.
-    private let predicate: UIKitRUMViewsPredicate?
+    private let uiKitPredicate: UIKitRUMViewsPredicate?
+
+    /// `SwiftUI` view predicate. `nil` if `SwiftUI` auto-instrumentations is
+    /// disabled.
+    private let swiftUIPredicate: SwiftUIRUMViewsPredicate?
+
+    /// `SwiftUI` view name extractor.
+    /// Extracts `SwiftUI` view name from view hierarchy.
+    private let swiftUIViewNameExtractor: SwiftUIViewNameExtractor?
 
     /// The notification center where this handler observes following `UIApplication` notifications:
     /// - `.didEnterBackgroundNotification`
@@ -61,11 +73,15 @@ internal final class RUMViewsHandler {
     ///    a set of `UIApplication` notifications.
     init(
         dateProvider: DateProvider,
-        predicate: UIKitRUMViewsPredicate?,
-        notificationCenter: NotificationCenter = .default
+        uiKitPredicate: UIKitRUMViewsPredicate?,
+        swiftUIPredicate: SwiftUIRUMViewsPredicate?,
+        swiftUIViewNameExtractor: SwiftUIViewNameExtractor?,
+        notificationCenter: NotificationCenter
     ) {
         self.dateProvider = dateProvider
-        self.predicate = predicate
+        self.uiKitPredicate = uiKitPredicate
+        self.swiftUIPredicate = swiftUIPredicate
+        self.swiftUIViewNameExtractor = swiftUIViewNameExtractor
         self.notificationCenter = notificationCenter
 
         notificationCenter.addObserver(
@@ -139,12 +155,13 @@ internal final class RUMViewsHandler {
 
     private func start(view: View) {
         guard let subscriber = subscriber else {
-            return DD.logger.warn(
+            DD.logger.warn(
                 """
-                RUM View was started, but no `RUMMonitor` is registered on `Global.rum`. RUM instrumentation will not work.
-                Make sure `Global.rum = RUMMonitor.initialize()` is called before any view appears.
+                A RUM view was started with \(view.instrumentationType) instrumentation, but RUM tracking appears to be disabled.
+                Ensure `RUM.enable()` is called before starting any views.
                 """
             )
+            return
         }
 
         guard !view.isUntrackedModal else {
@@ -157,7 +174,8 @@ internal final class RUMViewsHandler {
                 identity: view.identity,
                 name: view.name,
                 path: view.path,
-                attributes: view.attributes
+                attributes: view.attributes,
+                instrumentationType: view.instrumentationType
             )
         )
     }
@@ -191,6 +209,7 @@ internal final class RUMViewsHandler {
     }
 }
 
+// MARK: - UIViewControllerHandler
 extension RUMViewsHandler: UIViewControllerHandler {
     func notify_viewDidAppear(viewController: UIViewController, animated: Bool) {
         let identity = ViewIdentifier(viewController)
@@ -198,24 +217,29 @@ extension RUMViewsHandler: UIViewControllerHandler {
             // If the stack already contains the view controller, just restarts the view.
             // This prevents from calling the predicate when unnecessary.
             add(view: view)
-        } else if let rumView = predicate?.rumView(for: viewController) {
+        } else if let rumView = uiKitPredicate?.rumView(for: viewController) {
             add(
                 view: .init(
                     identity: identity,
                     name: rumView.name,
                     path: rumView.path ?? viewController.canonicalClassName,
                     isUntrackedModal: rumView.isUntrackedModal,
-                    attributes: rumView.attributes
+                    attributes: rumView.attributes,
+                    instrumentationType: .uikit
                 )
             )
-        } else if #available(iOS 13, tvOS 13, *), viewController.isModalInPresentation {
+        } else if let swiftUIPredicate,
+                  let swiftUIViewNameExtractor,
+                  let rumViewName = swiftUIViewNameExtractor.extractName(from: viewController),
+                  let rumView = swiftUIPredicate.rumView(for: rumViewName) {
             add(
                 view: .init(
                     identity: identity,
-                    name: "RUMUntrackedModal",
-                    path: viewController.canonicalClassName,
-                    isUntrackedModal: true,
-                    attributes: [:]
+                    name: rumView.name,
+                    path: rumView.path ?? viewController.canonicalClassName,
+                    isUntrackedModal: rumView.isUntrackedModal,
+                    attributes: rumView.attributes,
+                    instrumentationType: .swiftui
                 )
             )
         }
@@ -226,6 +250,7 @@ extension RUMViewsHandler: UIViewControllerHandler {
     }
 }
 
+// MARK: - SwiftUIViewHandler
 extension RUMViewsHandler: SwiftUIViewHandler {
     /// Respond to a `SwiftUI.View.onAppear` event.
     ///
@@ -240,7 +265,8 @@ extension RUMViewsHandler: SwiftUIViewHandler {
                 name: name,
                 path: path,
                 isUntrackedModal: false,
-                attributes: attributes
+                attributes: attributes,
+                instrumentationType: .swiftui
             )
         )
     }

@@ -14,6 +14,16 @@
 </p>
 
 
+# Fork Reason: AppRestrictedMode
+
+We needed a way to temporarily disable any upload to reduce network usage.
+
+In order to do that, the app can now call `AppRestrictedMode.setMode(enabled: Bool)`.
+
+And the `DataUploadConditions` flow will pick the value to block upload similar to when Low Power Mode is on.
+
+
+
 # Datadog SDK for iOS and tvOS
 
 > Swift and Objective-C libraries to interact with Datadog on iOS and tvOS.

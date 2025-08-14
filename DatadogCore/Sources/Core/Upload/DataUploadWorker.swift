@@ -248,6 +248,7 @@ internal class DataUploadWorker: DataUploadWorkerType {
                 case .battery: return "low_battery"
                 case .lowPowerModeOn: return "lpm"
                 case .networkReachability: return "offline"
+                case .appRestrictedModeOn: return "app_restricted"
                 }
             }
         )
@@ -298,6 +299,8 @@ extension DataUploadConditions.Blocker: CustomStringConvertible {
             return "🔌 Low Power Mode is: enabled"
         case let .networkReachability(description: description):
             return "📡 Network reachability is: " + description
+        case .appRestrictedModeOn:
+            return "🛑 App Restricted Mode is: enabled"
         }
     }
 }

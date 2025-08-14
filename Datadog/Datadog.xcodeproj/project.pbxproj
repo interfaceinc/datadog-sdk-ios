@@ -980,6 +980,8 @@
 		9E5BD8062819742C00CB568E /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9E5BD8052819742C00CB568E /* SwiftUI.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		9E68FB55244707FD0013A8AA /* ObjcExceptionHandler.m in Sources */ = {isa = PBXBuildFile; fileRef = 9E68FB53244707FD0013A8AA /* ObjcExceptionHandler.m */; };
 		9E68FB56244707FD0013A8AA /* ObjcExceptionHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = 9E68FB54244707FD0013A8AA /* ObjcExceptionHandler.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		A5E920CC2C17547F007A9A50 /* AppRestrictedModePublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E920CB2C17547F007A9A50 /* AppRestrictedModePublisher.swift */; };
+		A5E920CD2C17547F007A9A50 /* AppRestrictedModePublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E920CB2C17547F007A9A50 /* AppRestrictedModePublisher.swift */; };
 		A70A82652A935F210072F5DC /* BackgroundTaskCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70A82642A935F210072F5DC /* BackgroundTaskCoordinator.swift */; };
 		A70A82662A935F210072F5DC /* BackgroundTaskCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70A82642A935F210072F5DC /* BackgroundTaskCoordinator.swift */; };
 		A70ADCD22B583B1300321BC9 /* UIImageResource.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70ADCD12B583B1300321BC9 /* UIImageResource.swift */; };
@@ -2989,6 +2991,7 @@
 		9E9973F0268DF69500D8059B /* VitalInfoSampler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalInfoSampler.swift; sourceTree = "<group>"; };
 		9EC8B5D92668197B000F7529 /* VitalCPUReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalCPUReader.swift; sourceTree = "<group>"; };
 		9EC8B5ED2668E4DB000F7529 /* VitalCPUReaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalCPUReaderTests.swift; sourceTree = "<group>"; };
+		A5E920CB2C17547F007A9A50 /* AppRestrictedModePublisher.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppRestrictedModePublisher.swift; sourceTree = "<group>"; };
 		A70A82642A935F210072F5DC /* BackgroundTaskCoordinator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BackgroundTaskCoordinator.swift; sourceTree = "<group>"; };
 		A70ADCD12B583B1300321BC9 /* UIImageResource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIImageResource.swift; sourceTree = "<group>"; };
 		A71013D52B178FAD00101E60 /* ResourcesWriterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourcesWriterTests.swift; sourceTree = "<group>"; };
@@ -6753,6 +6756,7 @@
 				D29294DF291D5ECD00F8EFF9 /* ApplicationVersionPublisher.swift */,
 				D2FB1253292E0E92005B13F8 /* TrackingConsentPublisher.swift */,
 				86B43EC62DE464ED00FDDD29 /* LocaleInfoPublisher.swift */,
+				A5E920CB2C17547F007A9A50 /* AppRestrictedModePublisher.swift */,
 			);
 			path = Context;
 			sourceTree = "<group>";
@@ -8278,6 +8282,7 @@
 				D2DC4BF627F484AA00E4FB96 /* DataEncryption.swift in Sources */,
 				11EA5C2E2DC3CCA500E8DFA2 /* DatadogConfiguration.swift in Sources */,
 				D2FB1254292E0E96005B13F8 /* TrackingConsentPublisher.swift in Sources */,
+				A5E920CC2C17547F007A9A50 /* AppRestrictedModePublisher.swift in Sources */,
 				61D3E0D6277B23F1008BE766 /* KronosClock.swift in Sources */,
 				D2A7841129A53B2F003B03BB /* File.swift in Sources */,
 				D2E6E8FB2D8039BB00FF1398 /* BenchmarkURLSessionTaskDelegate.swift in Sources */,
@@ -9683,6 +9688,7 @@
 				D21C26C628A3B49C005DD405 /* FeatureStorage.swift in Sources */,
 				11EA5C2D2DC3CCA500E8DFA2 /* DatadogConfiguration.swift in Sources */,
 				D2CB6E5527C50EAE00A62B57 /* KronosNSTimer+ClosureKit.swift in Sources */,
+				A5E920CD2C17547F007A9A50 /* AppRestrictedModePublisher.swift in Sources */,
 				D2CB6E6627C50EAE00A62B57 /* Reader.swift in Sources */,
 				D2CB6E6927C50EAE00A62B57 /* KronosDNSResolver.swift in Sources */,
 				D2E6E8FC2D8039BB00FF1398 /* BenchmarkURLSessionTaskDelegate.swift in Sources */,

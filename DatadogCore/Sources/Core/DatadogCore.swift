@@ -563,6 +563,8 @@ extension DatadogContextProvider {
             self.subscribe(\.applicationStateHistory, to: applicationStatePublisher)
         }
         #endif
+
+        subscribe(\.isAppRestrictedModeEnabled, to: AppRestrictedModePublisher())
     }
 }
 

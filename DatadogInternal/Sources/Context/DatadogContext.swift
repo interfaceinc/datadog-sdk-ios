@@ -122,6 +122,9 @@ public struct DatadogContext {
     /// Additional context that can set from `core` instance.
     private var additionalContext: [String: AdditionalContext] = [:]
 
+    /// `true` if the app wants to restrict network usage
+    public var isAppRestrictedModeEnabled = false
+
     // swiftlint:disable function_default_parameter_at_end
     public init(
         site: DatadogSite,
@@ -154,7 +157,8 @@ public struct DatadogContext {
         batteryStatus: BatteryStatus? = nil,
         brightnessLevel: BrightnessLevel? = nil,
         isLowPowerModeEnabled: Bool = false,
-        additionalContext: [String: AdditionalContext] = [:]
+        additionalContext: [String: AdditionalContext] = [:],
+        isAppRestrictedModeEnabled: Bool = false
     ) {
         self.site = site
         self.clientToken = clientToken
@@ -187,6 +191,7 @@ public struct DatadogContext {
         self.brightnessLevel = brightnessLevel
         self.isLowPowerModeEnabled = isLowPowerModeEnabled
         self.additionalContext = additionalContext
+        self.isAppRestrictedModeEnabled = isAppRestrictedModeEnabled
     }
     // swiftlint:enable function_default_parameter_at_end
 }
